@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>보물찾기 · 뜨겁고 차가운 온도계</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+  :root {
+    --page: #F3F1EC;
+    --surface-1: #EAE7E0;
+    --surface-2: #FFFFFF;
+    --text-primary: #2C2C2A;
+    --text-secondary: #5F5E5A;
+    --text-muted: #888780;
+    --border: rgba(44,44,42,0.14);
+    --border-strong: rgba(44,44,42,0.28);
+    --accent: #BA7517;
+    --radius: 8px;
+    --font-sans: "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+                 "Segoe UI", "Noto Sans KR", "Malgun Gothic", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page: #191917;
+      --surface-1: #232320;
+      --surface-2: #2C2C29;
+      --text-primary: #EDEBE5;
+      --text-secondary: #A8A69F;
+      --text-muted: #7E7C76;
+      --border: rgba(237,235,229,0.14);
+      --border-strong: rgba(237,235,229,0.3);
+      --accent: #EF9F27;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--page);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 680px; margin: 0 auto; padding: 2.5rem 1.25rem 3.5rem; }
+
+  .sr-only {
+    position: absolute; width: 1px; height: 1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+  }
+
+  .head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; flex-wrap: wrap; margin-bottom: 0.75rem;
+  }
+  .lv-title { margin: 0; font-size: 18px; font-weight: 500; }
+  .pips { display: flex; gap: 5px; }
+  .pips span { display: inline-block; width: 22px; height: 5px; border-radius: 3px; }
+
+  .npc {
+    display: flex; align-items: flex-start; gap: 12px;
+    background: var(--surface-1); border-radius: 12px;
+    padding: 1rem 1.25rem; margin-bottom: 1.25rem;
+  }
+  .npc-avatar {
+    width: 38px; height: 38px; flex: none; border-radius: 50%;
+    background: #FAEEDA; color: #854F0B; font-size: 20px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .npc-name { margin: 0 0 2px; font-size: 13px; color: var(--text-secondary); }
+  .npc-line { margin: 0; font-size: 16px; line-height: 1.5; }
+
+  .stats {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px; margin-bottom: 1.25rem;
+  }
+  .stat { background: var(--surface-1); border-radius: var(--radius); padding: 0.75rem 1rem; }
+  .stat p { margin: 0; }
+  .stat .label { font-size: 13px; color: var(--text-secondary); }
+  .stat .value { font-size: 24px; font-weight: 500; margin-top: 2px; }
+
+  .stage { position: relative; }
+  .board { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 4px; }
+  .cell {
+    aspect-ratio: 1; padding: 0; min-width: 0;
+    font-family: inherit; font-size: 11px; font-weight: 500;
+    border: 0.5px solid var(--border); border-radius: var(--radius);
+    background: var(--surface-2); color: var(--text-muted);
+    cursor: pointer; transition: background 120ms ease;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .cell:hover:not([data-picked]) { border-color: var(--border-strong); }
+  .cell:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .overlay {
+    display: none; position: absolute; inset: -8px;
+    background: rgba(20, 20, 18, 0.45); border-radius: 12px;
+    align-items: center; justify-content: center; padding: 1rem;
+  }
+  .overlay.on { display: flex; }
+  .modal {
+    background: var(--surface-2); border: 0.5px solid var(--border);
+    border-radius: 12px; padding: 1.5rem; max-width: 340px; width: 100%;
+    text-align: center;
+  }
+  .modal-icon {
+    width: 48px; height: 48px; margin: 0 auto 12px; border-radius: 50%;
+    font-size: 24px; display: flex; align-items: center; justify-content: center;
+  }
+  .modal h2 { margin: 0 0 6px; font-size: 18px; font-weight: 500; }
+  .modal .body { margin: 0 0 4px; font-size: 14px; color: var(--text-secondary); }
+  .modal .gain { margin: 0 0 1.25rem; font-size: 14px; font-weight: 500; color: var(--accent); min-height: 1.4em; }
+
+  button.btn {
+    font-family: inherit; font-size: 14px; font-weight: 500;
+    color: var(--text-primary); background: transparent;
+    border: 0.5px solid var(--border-strong); border-radius: var(--radius);
+    padding: 0.55rem 1rem; cursor: pointer;
+    transition: background 120ms ease, transform 80ms ease;
+  }
+  button.btn:hover { background: var(--surface-1); }
+  button.btn:active { transform: scale(0.98); }
+  button.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .modal button.btn { width: 100%; }
+
+  .foot {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; flex-wrap: wrap; margin-top: 1.25rem;
+  }
+  .legend { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); }
+  .legend i { display: inline-block; width: 16px; height: 12px; border-radius: 2px; }
+
+  @media (max-width: 480px) {
+    .wrap { padding: 1.5rem 0.75rem 2.5rem; }
+    .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .stat { padding: 0.6rem 0.7rem; }
+    .stat .value { font-size: 20px; }
+    .board { gap: 3px; }
+    .cell { border-radius: 5px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 class="sr-only">보물찾기 게임. 10×10 격자의 칸을 고르면 NPC가 보물과의 거리를 온도로 알려줍니다.</h1>
+
+  <div class="head">
+    <p class="lv-title" id="lv-title">레벨 1 · 친절한 온도계</p>
+    <div class="pips" id="pips" aria-hidden="true"></div>
+  </div>
+
+  <div class="npc">
+    <div class="npc-avatar" aria-hidden="true"><i class="ti ti-flame"></i></div>
+    <div style="min-width:0">
+      <p class="npc-name">온도계 지기 세비</p>
+      <p class="npc-line" id="npc-line" role="status" aria-live="polite">어딘가에 보물을 숨겨뒀어. 아무 칸이나 짚어보면 뜨거운지 차가운지 알려줄게.</p>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><p class="label">남은 시도</p><p class="value" id="tries">∞</p></div>
+    <div class="stat"><p class="label">현재 온도</p><p class="value" id="temp">—</p></div>
+    <div class="stat"><p class="label">누적 점수</p><p class="value" id="score">0</p></div>
+  </div>
+
+  <div class="stage">
+    <div class="board" id="board" role="grid" aria-label="10 곱하기 10 보물 격자"></div>
+    <div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="ov-title">
+      <div class="modal">
+        <div class="modal-icon" id="ov-icon" aria-hidden="true"><i class="ti ti-diamond"></i></div>
+        <h2 id="ov-title">보물 발견</h2>
+        <p class="body" id="ov-body"></p>
+        <p class="gain" id="ov-gain"></p>
+        <button class="btn" id="ov-btn">다음 레벨</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <div class="legend" id="legend"></div>
+    <button class="btn" id="reset">처음부터</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  var N = 10;
+  var C = {
+    find:  ["#F7C1C1", "#501313"],
+    vhot:  ["#F09595", "#501313"],
+    hot:   ["#FAC775", "#412402"],
+    warm:  ["#FAEEDA", "#633806"],
+    tep:   ["#E5E2DA", "#2C2C2A"],
+    cold:  ["#E6F1FB", "#042C53"],
+    vcold: ["#B5D4F4", "#042C53"]
+  };
+  function band(max, label, key, line) {
+    return { max: max, label: label, bg: C[key][0], fg: C[key][1], line: line };
+  }
+
+  var LEVELS = [
+    {
+      name: "친절한 온도계", limit: null, fade: false,
+      intro: "어딘가에 보물을 숨겨뒀어. 아무 칸이나 짚어봐.",
+      bands: [
+        band(0, "발견", "find", "찾았다. 바로 여기야."),
+        band(1, "앗 뜨거", "vhot", "앗 뜨거워. 바로 옆이야."),
+        band(2, "매우 뜨거움", "vhot", "매우 뜨거워. 거의 다 왔어."),
+        band(3, "뜨거움", "hot", "뜨거워. 이 근처를 더 파봐."),
+        band(4, "따뜻함", "warm", "따뜻해. 방향은 맞아."),
+        band(5, "미지근함", "tep", "미지근해. 좀 더 움직여봐."),
+        band(7, "차가움", "cold", "차가워. 여긴 아니야."),
+        band(99, "매우 차가움", "vcold", "매우 차가워. 완전히 반대쪽을 봐.")
+      ]
+    },
+    {
+      name: "무뚝뚝한 온도계", limit: 12, fade: false,
+      intro: "새로 숨겼어. 이번엔 말을 좀 아낄 거야.",
+      bands: [
+        band(0, "발견", "find", "찾았네. 운도 좋아."),
+        band(1, "매우 뜨거움", "vhot", "매우 뜨거워."),
+        band(3, "뜨거움", "hot", "뜨거워."),
+        band(5, "따뜻함", "warm", "따뜻한 정도."),
+        band(99, "차가움", "cold", "차가워.")
+      ]
+    },
+    {
+      name: "인색한 온도계", limit: 10, fade: false,
+      intro: "이제 세 마디로만 알려줄게. 잘 세어봐.",
+      bands: [
+        band(0, "발견", "find", "찾았어. 인정."),
+        band(3, "뜨거움", "hot", "뜨거움."),
+        band(6, "따뜻함", "warm", "따뜻함."),
+        band(99, "차가움", "cold", "차가움.")
+      ]
+    },
+    {
+      name: "기억이 흐린 온도계", limit: 8, fade: true,
+      intro: "미리 말해두는데, 나는 최근 세 번밖에 기억하지 못해.",
+      bands: [
+        band(0, "발견", "find", "여기였구나. 다 기억하고 있었네."),
+        band(3, "뜨거움", "hot", "뜨거움. 아까 뭐라고 했는지는 잊었어."),
+        band(6, "따뜻함", "warm", "따뜻함. 앞의 힌트는 지워지는 중이야."),
+        band(99, "차가움", "cold", "차가움. 기억이 잘 안 나.")
+      ]
+    }
+  ];
+
+  var board = document.getElementById("board");
+  var npc = document.getElementById("npc-line");
+  var triesEl = document.getElementById("tries");
+  var tempEl = document.getElementById("temp");
+  var scoreEl = document.getElementById("score");
+  var lvTitle = document.getElementById("lv-title");
+  var pips = document.getElementById("pips");
+  var legend = document.getElementById("legend");
+  var overlay = document.getElementById("overlay");
+  var ovIcon = document.getElementById("ov-icon");
+  var ovTitle = document.getElementById("ov-title");
+  var ovBody = document.getElementById("ov-body");
+  var ovGain = document.getElementById("ov-gain");
+  var ovBtn = document.getElementById("ov-btn");
+  var resetBtn = document.getElementById("reset");
+
+  var lv = 0, score = 0, target, tries, done, history, nextAction;
+
+  function cfg() { return LEVELS[lv]; }
+
+  function bandFor(d) {
+    var b = cfg().bands;
+    for (var i = 0; i < b.length; i++) { if (d <= b[i].max) return b[i]; }
+    return b[b.length - 1];
+  }
+
+  function drawLegend() {
+    legend.innerHTML = "";
+    var cold = document.createElement("span");
+    cold.textContent = "차가움";
+    legend.appendChild(cold);
+    cfg().bands.slice().reverse().forEach(function (x) {
+      var sw = document.createElement("i");
+      sw.style.background = x.bg;
+      legend.appendChild(sw);
+    });
+    var hot = document.createElement("span");
+    hot.textContent = "뜨거움";
+    legend.appendChild(hot);
+  }
+
+  function drawPips() {
+    pips.innerHTML = "";
+    LEVELS.forEach(function (_, i) {
+      var d = document.createElement("span");
+      d.style.background = i <= lv ? "var(--accent)" : "var(--border-strong)";
+      pips.appendChild(d);
+    });
+  }
+
+  function build() {
+    board.innerHTML = "";
+    for (var r = 0; r < N; r++) {
+      for (var c = 0; c < N; c++) {
+        var cell = document.createElement("button");
+        cell.type = "button";
+        cell.className = "cell";
+        cell.dataset.r = r;
+        cell.dataset.c = c;
+        cell.setAttribute("aria-label", (r + 1) + "행 " + (c + 1) + "열");
+        board.appendChild(cell);
+      }
+    }
+  }
+
+  function clearCell(cell) {
+    cell.style.background = "";
+    cell.style.color = "";
+    cell.style.borderColor = "";
+    cell.innerHTML = "";
+  }
+
+  function paint(cell, b) {
+    cell.style.background = b.bg;
+    cell.style.color = b.fg;
+    cell.style.borderColor = "transparent";
+  }
+
+  function startLevel() {
+    var k = cfg();
+    target = { r: Math.floor(Math.random() * N), c: Math.floor(Math.random() * N) };
+    tries = 0;
+    done = false;
+    history = [];
+    lvTitle.textContent = "레벨 " + (lv + 1) + " · " + k.name;
+    triesEl.textContent = k.limit === null ? "∞" : k.limit;
+    tempEl.textContent = "—";
+    npc.textContent = k.intro;
+    overlay.classList.remove("on");
+    drawPips();
+    drawLegend();
+    build();
+  }
+
+  function showOverlay(kind, title, body, gain, btn, action) {
+    ovIcon.style.background = kind === "win" ? "#F7C1C1" : "#E6F1FB";
+    ovIcon.style.color = kind === "win" ? "#501313" : "#042C53";
+    ovIcon.innerHTML = '<i class="ti ti-' + (kind === "win" ? "diamond" : "snowflake") + '"></i>';
+    ovTitle.textContent = title;
+    ovBody.textContent = body;
+    ovGain.textContent = gain;
+    ovBtn.textContent = btn;
+    nextAction = action;
+    overlay.classList.add("on");
+    ovBtn.focus();
+  }
+
+  function revealTarget() {
+    var cell = board.children[target.r * N + target.c];
+    paint(cell, cfg().bands[0]);
+    cell.innerHTML = '<i class="ti ti-diamond" style="font-size:16px"></i>';
+  }
+
+  function fail() {
+    done = true;
+    npc.textContent = "시도를 다 썼어. 보물은 저기 있었지.";
+    revealTarget();
+    showOverlay("cold", "보물이 식어버렸어",
+      "시도 횟수를 다 썼습니다. 이 레벨을 다시 시작합니다.",
+      "", "다시 도전", startLevel);
+  }
+
+  function win() {
+    done = true;
+    var k = cfg();
+    var base = k.limit === null ? 20 : k.limit * 10;
+    var gain = Math.max(10, base - (tries - 1) * 5) * (lv + 1);
+    score += gain;
+    scoreEl.textContent = score.toLocaleString();
+    npc.textContent = "찾았다. " + tries + "번 만에 짚었어.";
+
+    if (lv < LEVELS.length - 1) {
+      showOverlay("win", "레벨 " + (lv + 1) + " 클리어",
+        tries + "번 만에 찾았습니다. 다음 레벨에서는 " + LEVELS[lv + 1].name + "가 기다립니다.",
+        "+" + gain.toLocaleString() + "점", "다음 레벨",
+        function () { lv++; startLevel(); });
+    } else {
+      showOverlay("win", "전체 클리어",
+        "네 단계 모두 통과했습니다. 최종 누적 점수는 " + score.toLocaleString() + "점입니다.",
+        "+" + gain.toLocaleString() + "점", "처음부터 다시",
+        function () { lv = 0; score = 0; scoreEl.textContent = "0"; startLevel(); });
+    }
+  }
+
+  board.addEventListener("click", function (e) {
+    var cell = e.target.closest("button.cell");
+    if (!cell || done) return;
+
+    var r = +cell.dataset.r, c = +cell.dataset.c;
+    var d = Math.max(Math.abs(r - target.r), Math.abs(c - target.c));
+    var b = bandFor(d);
+    var k = cfg();
+
+    if (!cell.dataset.picked) {
+      cell.dataset.picked = "1";
+      tries++;
+      if (k.limit !== null) triesEl.textContent = Math.max(0, k.limit - tries);
+      history.push(cell);
+      if (k.fade && history.length > 3) {
+        var old = history.shift();
+        if (old !== cell) { clearCell(old); delete old.dataset.picked; }
+      }
+    }
+
+    paint(cell, b);
+    tempEl.textContent = b.label;
+    npc.textContent = b.line;
+
+    if (d === 0) {
+      cell.innerHTML = '<i class="ti ti-diamond" style="font-size:16px"></i>';
+      win();
+      return;
+    }
+    if (k.limit !== null && tries >= k.limit) fail();
+  });
+
+  ovBtn.addEventListener("click", function () { if (nextAction) nextAction(); });
+  overlay.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && nextAction) nextAction();
+  });
+  resetBtn.addEventListener("click", function () {
+    lv = 0; score = 0; scoreEl.textContent = "0"; startLevel();
+  });
+
+  startLevel();
+})();
+</script>
+</body>
+</html>
