@@ -2,6 +2,8 @@
 
 폰으로 찍은 영상 한 편으로 방의 3D 점 구름과 카메라 경로를 복원하고, 결과를 웹 브라우저에서 3D 가우시안 스플랫으로 확인하는 프로젝트입니다.
 
+저장소: https://github.com/daum0809/room-3d-reconstruction
+
 ## 구성 파일
 
 - **`room_3d_reconstruction.ipynb`** — Google Colab 노트북. `facebook/map-anything-apache` 모델(T4 무료 등급, fp16 기준)로 영상에서 3D 점 구름 + 카메라 위치를 복원하고, 3D Gaussian Splatting 포맷(`.ply`)으로 저장합니다.
