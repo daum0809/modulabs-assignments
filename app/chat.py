@@ -53,8 +53,9 @@ def answer(question: str, history: list[dict] | None = None) -> dict:
 
     text = _THINK.sub("", res.get("message", {}).get("content") or "").strip()
     titles = []
+    plain = text.replace(" ", "").replace("_", "")  # 모델이 '학원_운영_규정'을 '학원 운영 규정'으로 쓰기도 한다
     for h in hits:
-        if h["title"] in text and h["title"] not in titles:
+        if h["title"].replace("_", "") in plain and h["title"] not in titles:
             titles.append(h["title"])
     return {"answer": text or "답변을 만들지 못했습니다.", "sources": titles,
             "retrieved": [{"title": h["title"], "score": h["score"], "preview": h["text"][:120]} for h in hits]}
