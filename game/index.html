@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>과일 사다리 레이스</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-0:#120a24;
+    --bg-1:#1f1140;
+    --card:#241335;
+    --card-border:rgba(255,255,255,0.08);
+    --ink:#f4f1fb;
+    --ink-dim:#b8aed6;
+    --lane-dim:rgba(255,255,255,0.14);
+    --rung:rgba(255,255,255,0.55);
+    --gold:#ffd23f;
+    --c-strawberry:#ff5a5f;
+    --c-blueberry:#3a86ff;
+    --c-lemon:#ffd93d;
+    --c-kiwi:#8bc34a;
+    --c-grape:#b983ff;
+  }
+
+  *{box-sizing:border-box;}
+
+  html,body{
+    margin:0;
+    min-height:100%;
+    background:
+      radial-gradient(1200px 600px at 15% -10%, #35205f 0%, transparent 60%),
+      radial-gradient(900px 500px at 100% 10%, #1a2a5c 0%, transparent 55%),
+      linear-gradient(180deg, var(--bg-0) 0%, var(--bg-1) 100%);
+    color:var(--ink);
+    font-family:"Noto Sans KR", system-ui, sans-serif;
+    overflow-x:hidden;
+  }
+
+  body{
+    display:flex;
+    justify-content:center;
+    padding:32px 16px 64px;
+  }
+
+  .stars{
+    position:fixed;
+    inset:0;
+    pointer-events:none;
+    background-image:
+      radial-gradient(1.5px 1.5px at 10% 20%, rgba(255,255,255,0.5), transparent),
+      radial-gradient(1.5px 1.5px at 80% 15%, rgba(255,255,255,0.4), transparent),
+      radial-gradient(2px 2px at 60% 70%, rgba(255,255,255,0.35), transparent),
+      radial-gradient(1.5px 1.5px at 30% 85%, rgba(255,255,255,0.4), transparent),
+      radial-gradient(1.5px 1.5px at 90% 60%, rgba(255,255,255,0.3), transparent),
+      radial-gradient(1.5px 1.5px at 45% 40%, rgba(255,255,255,0.3), transparent);
+    background-repeat:no-repeat;
+    z-index:0;
+  }
+
+  .stage{
+    position:relative;
+    z-index:1;
+    width:100%;
+    max-width:720px;
+  }
+
+  .eyebrow{
+    text-align:center;
+    color:var(--ink-dim);
+    font-size:14px;
+    letter-spacing:0.02em;
+    margin:0 0 6px;
+  }
+
+  h1{
+    font-family:"Jua", "Noto Sans KR", sans-serif;
+    font-weight:400;
+    text-align:center;
+    font-size:clamp(30px, 6vw, 44px);
+    margin:0 0 8px;
+    color:var(--ink);
+    text-shadow:0 0 24px rgba(255,210,63,0.25);
+  }
+
+  .lede{
+    text-align:center;
+    color:var(--ink-dim);
+    font-size:15px;
+    margin:0 0 28px;
+    line-height:1.6;
+  }
+
+  .panel{
+    background:linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.01));
+    border:1px solid var(--card-border);
+    border-radius:24px;
+    padding:28px;
+    backdrop-filter:blur(6px);
+    box-shadow:0 20px 60px rgba(0,0,0,0.35);
+  }
+
+  /* ---------- 캐릭터 선택 화면 ---------- */
+
+  .roster{
+    display:grid;
+    grid-template-columns:repeat(5, 1fr);
+    gap:12px;
+    margin-bottom:24px;
+  }
+
+  @media (max-width:520px){
+    .roster{ grid-template-columns:repeat(3, 1fr); }
+  }
+
+  .racer-card{
+    position:relative;
+    background:rgba(255,255,255,0.03);
+    border:2px solid transparent;
+    border-radius:16px;
+    padding:14px 8px 12px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:8px;
+    cursor:pointer;
+    transition:transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  }
+
+  .racer-card:hover{
+    transform:translateY(-3px);
+    background:rgba(255,255,255,0.06);
+  }
+
+  .racer-card.selected{
+    border-color:var(--racer-color);
+    background:rgba(255,255,255,0.08);
+    box-shadow:0 0 0 4px color-mix(in srgb, var(--racer-color) 22%, transparent), 0 8px 20px rgba(0,0,0,0.3);
+  }
+
+  .racer-card svg{ width:56px; height:56px; }
+
+  .racer-name{
+    font-size:13px;
+    font-weight:700;
+    color:var(--ink);
+  }
+
+  .racer-check{
+    position:absolute;
+    top:6px;
+    right:6px;
+    width:18px;
+    height:18px;
+    border-radius:50%;
+    background:var(--racer-color);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    font-size:11px;
+    color:#160a2b;
+    font-weight:900;
+  }
+  .racer-card.selected .racer-check{ display:flex; }
+
+  .actions{
+    display:flex;
+    justify-content:center;
+  }
+
+  button.primary{
+    font-family:"Jua","Noto Sans KR",sans-serif;
+    font-size:18px;
+    letter-spacing:0.01em;
+    padding:14px 40px;
+    border-radius:999px;
+    border:none;
+    cursor:pointer;
+    color:#1a0d33;
+    background:linear-gradient(135deg, #ffe27a, var(--gold));
+    box-shadow:0 10px 24px rgba(255,210,63,0.28);
+    transition:transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+  }
+
+  button.primary:disabled{
+    opacity:0.35;
+    cursor:not-allowed;
+    box-shadow:none;
+  }
+
+  button.primary:not(:disabled):hover{
+    transform:translateY(-2px);
+    box-shadow:0 14px 30px rgba(255,210,63,0.36);
+  }
+
+  button.ghost{
+    font-family:"Noto Sans KR", sans-serif;
+    font-size:14px;
+    padding:10px 22px;
+    border-radius:999px;
+    border:1px solid rgba(255,255,255,0.18);
+    background:transparent;
+    color:var(--ink);
+    cursor:pointer;
+    transition:background 0.12s ease;
+  }
+  button.ghost:hover{ background:rgba(255,255,255,0.07); }
+
+  /* ---------- 레이스 화면 ---------- */
+
+  .race-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:14px;
+  }
+
+  .race-title{
+    font-family:"Jua","Noto Sans KR",sans-serif;
+    font-size:20px;
+  }
+
+  canvas{
+    width:100%;
+    display:block;
+    border-radius:16px;
+    background:linear-gradient(180deg, rgba(0,0,0,0.22), rgba(0,0,0,0.08));
+  }
+
+  .countdown{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:"Jua","Noto Sans KR",sans-serif;
+    font-size:96px;
+    color:var(--gold);
+    text-shadow:0 0 30px rgba(255,210,63,0.6);
+    pointer-events:none;
+  }
+
+  .canvas-wrap{ position:relative; }
+
+  /* ---------- 결과 화면 ---------- */
+
+  .overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(10,4,20,0.72);
+    backdrop-filter:blur(3px);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+    z-index:5;
+  }
+
+  .result-card{
+    width:100%;
+    max-width:420px;
+    background:linear-gradient(180deg, #2a1746, #1a0d33);
+    border:1px solid rgba(255,255,255,0.1);
+    border-radius:24px;
+    padding:28px 24px;
+    text-align:center;
+    box-shadow:0 30px 80px rgba(0,0,0,0.5);
+  }
+
+  .result-card h2{
+    font-family:"Jua","Noto Sans KR",sans-serif;
+    font-weight:400;
+    font-size:26px;
+    margin:0 0 20px;
+  }
+
+  .rank-row{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:10px 14px;
+    border-radius:14px;
+    margin-bottom:8px;
+    background:rgba(255,255,255,0.04);
+  }
+
+  .rank-row.gold{ background:rgba(255,210,63,0.14); }
+  .rank-row.silver{ background:rgba(200,210,230,0.12); }
+  .rank-row.bronze{ background:rgba(214,140,90,0.14); }
+
+  .rank-num{
+    font-family:"Jua","Noto Sans KR",sans-serif;
+    font-size:18px;
+    width:28px;
+    color:var(--ink-dim);
+  }
+
+  .rank-row.gold .rank-num{ color:var(--gold); }
+
+  .rank-icon svg{ width:32px; height:32px; }
+
+  .rank-name{
+    flex:1;
+    text-align:left;
+    font-size:15px;
+    font-weight:700;
+  }
+
+  .rank-time{
+    font-size:12px;
+    color:var(--ink-dim);
+  }
+
+  .result-actions{
+    margin-top:20px;
+    display:flex;
+    gap:10px;
+    justify-content:center;
+  }
+
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+
+<div class="stars"></div>
+
+<div class="stage">
+
+  <!-- ===================== 화면 1: 캐릭터 선택 ===================== -->
+  <section id="screen-select">
+    <p class="eyebrow">과일 사다리 레이스</p>
+    <h1>누가 먼저 골인할까?</h1>
+    <p class="lede">과일 하나를 골라 사다리 아래로 내려보내세요.<br>길은 매번 다르게 만들어져요.</p>
+
+    <div class="panel">
+      <div class="roster" id="roster"></div>
+      <div class="actions">
+        <button class="primary" id="btn-start" disabled>레이스 시작</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== 화면 2: 레이스 ===================== -->
+  <section id="screen-race" class="hidden">
+    <div class="race-header">
+      <span class="race-title" id="race-title">레이스 진행 중</span>
+      <button class="ghost" id="btn-back">캐릭터 다시 고르기</button>
+    </div>
+    <div class="panel">
+      <div class="canvas-wrap">
+        <canvas id="ladder-canvas"></canvas>
+        <div class="countdown hidden" id="countdown"></div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- ===================== 결과 오버레이 ===================== -->
+<div class="overlay hidden" id="result-overlay">
+  <div class="result-card">
+    <h2>레이스 결과</h2>
+    <div id="rank-list"></div>
+    <div class="result-actions">
+      <button class="ghost" id="btn-again">같은 캐릭터로 다시</button>
+      <button class="primary" id="btn-restart">처음으로</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   데이터: 5종 과일 캐릭터
+   ============================================================ */
+const FRUITS = [
+  { id:'strawberry', name:'딸기', color:'var(--c-strawberry)', hex:'#ff5a5f' },
+  { id:'blueberry',  name:'블루베리', color:'var(--c-blueberry)',  hex:'#3a86ff' },
+  { id:'lemon',      name:'레몬', color:'var(--c-lemon)',      hex:'#ffd93d' },
+  { id:'kiwi',       name:'키위', color:'var(--c-kiwi)',       hex:'#8bc34a' },
+  { id:'grape',      name:'포도', color:'var(--c-grape)',      hex:'#b983ff' },
+];
+
+/* 과일별 SVG 마크업 (선택 화면용, 작은 아이콘) */
+function fruitSVG(id, size=56){
+  const s = size;
+  switch(id){
+    case 'strawberry': return `
+      <svg viewBox="0 0 64 64">
+        <path d="M32 14c6 0 9 4 9 4s6-2 9 3-1 8-1 8 4 4 4 12c0 12-11 21-21 21S11 53 11 41c0-8 4-12 4-12s-4-3-1-8 9-3 9-3 3-4 9-4z" fill="#ff5a5f"/>
+        <path d="M32 8c-3 0-6 3-8 6 3-1 6-1 8-1s5 0 8 1c-2-3-5-6-8-6z" fill="#4caf50"/>
+        <circle cx="24" cy="34" r="1.6" fill="#ffe27a"/>
+        <circle cx="32" cy="30" r="1.6" fill="#ffe27a"/>
+        <circle cx="40" cy="34" r="1.6" fill="#ffe27a"/>
+        <circle cx="26" cy="44" r="1.6" fill="#ffe27a"/>
+        <circle cx="38" cy="44" r="1.6" fill="#ffe27a"/>
+        <circle cx="32" cy="50" r="1.6" fill="#ffe27a"/>
+        <circle cx="25" cy="27" r="2" fill="#1a0d33"/>
+        <circle cx="39" cy="27" r="2" fill="#1a0d33"/>
+        <path d="M27 40q5 4 10 0" stroke="#1a0d33" stroke-width="2" fill="none" stroke-linecap="round"/>
+      </svg>`;
+    case 'blueberry': return `
+      <svg viewBox="0 0 64 64">
+        <circle cx="32" cy="36" r="20" fill="#3a86ff"/>
+        <path d="M27 17 L32 12 L37 17" stroke="#1a5fb4" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="25" cy="32" r="2" fill="#0d1b3a"/>
+        <circle cx="39" cy="32" r="2" fill="#0d1b3a"/>
+        <path d="M26 42q6 5 12 0" stroke="#0d1b3a" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <ellipse cx="24" cy="27" rx="3" ry="2" fill="#8fb8ff" opacity="0.6"/>
+      </svg>`;
+    case 'lemon': return `
+      <svg viewBox="0 0 64 64">
+        <ellipse cx="32" cy="34" rx="19" ry="15" fill="#ffd93d"/>
+        <path d="M13 34 q-4 0 -5 -3" stroke="#e6b800" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <path d="M51 34 q4 0 5 -3" stroke="#e6b800" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <circle cx="26" cy="31" r="2" fill="#5a4600"/>
+        <circle cx="38" cy="31" r="2" fill="#5a4600"/>
+        <path d="M25 41q7 5 14 0" stroke="#5a4600" stroke-width="2" fill="none" stroke-linecap="round"/>
+      </svg>`;
+    case 'kiwi': return `
+      <svg viewBox="0 0 64 64">
+        <circle cx="32" cy="34" r="20" fill="#8bc34a"/>
+        <circle cx="32" cy="34" r="14" fill="#c6e48b"/>
+        <circle cx="32" cy="34" r="5" fill="#f4f1e2"/>
+        <g fill="#3a2b0f">
+          <circle cx="32" cy="27" r="1.1"/><circle cx="37" cy="30" r="1.1"/><circle cx="38" cy="36" r="1.1"/>
+          <circle cx="34" cy="41" r="1.1"/><circle cx="28" cy="41" r="1.1"/><circle cx="26" cy="36" r="1.1"/><circle cx="27" cy="30" r="1.1"/>
+        </g>
+        <circle cx="26" cy="29" r="2" fill="#2b1c0a"/>
+        <circle cx="38" cy="29" r="2" fill="#2b1c0a"/>
+        <path d="M28 40q4 3 8 0" stroke="#2b1c0a" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+      </svg>`;
+    case 'grape': return `
+      <svg viewBox="0 0 64 64">
+        <g fill="#b983ff">
+          <circle cx="32" cy="16" r="7"/>
+          <circle cx="22" cy="26" r="7"/>
+          <circle cx="42" cy="26" r="7"/>
+          <circle cx="16" cy="38" r="7"/>
+          <circle cx="32" cy="38" r="7"/>
+          <circle cx="48" cy="38" r="7"/>
+          <circle cx="24" cy="49" r="7"/>
+          <circle cx="40" cy="49" r="7"/>
+        </g>
+        <path d="M32 9 L34 3" stroke="#4caf50" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <circle cx="27" cy="46" r="1.8" fill="#2b1240"/>
+        <circle cx="37" cy="46" r="1.8" fill="#2b1240"/>
+        <path d="M28 52q4 3 8 0" stroke="#2b1240" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+      </svg>`;
+  }
+}
+
+/* ============================================================
+   상태
+   ============================================================ */
+let selectedFruit = null;
+let ladderData = null;     // { rows, laneCount, rungs, laneX, rowY }
+let racers = [];           // { fruit, waypoints[], totalLen, duration, elapsed, done, finishTime }
+let animFrame = null;
+
+/* ============================================================
+   화면 1: 캐릭터 선택 렌더 & 이벤트
+   ============================================================ */
+const rosterEl = document.getElementById('roster');
+FRUITS.forEach(f=>{
+  const card = document.createElement('div');
+  card.className = 'racer-card';
+  card.style.setProperty('--racer-color', f.hex);
+  card.dataset.id = f.id;
+  card.innerHTML = `${fruitSVG(f.id)}<span class="racer-name">${f.name}</span><span class="racer-check">✓</span>`;
+  card.addEventListener('click', ()=>{
+    selectedFruit = f;
+    document.querySelectorAll('.racer-card').forEach(c=>c.classList.remove('selected'));
+    card.classList.add('selected');
+    document.getElementById('btn-start').disabled = false;
+  });
+  rosterEl.appendChild(card);
+});
+
+document.getElementById('btn-start').addEventListener('click', ()=>{
+  if(!selectedFruit) return;
+  document.getElementById('screen-select').classList.add('hidden');
+  document.getElementById('screen-race').classList.remove('hidden');
+  document.getElementById('race-title').textContent = `${selectedFruit.name}의 레이스`;
+  setupRace();
+});
+
+document.getElementById('btn-back').addEventListener('click', ()=>{
+  cancelAnimationFrame(animFrame);
+  document.getElementById('screen-race').classList.add('hidden');
+  document.getElementById('screen-select').classList.remove('hidden');
+});
+
+/* ============================================================
+   사다리 생성
+   ============================================================ */
+function generateLadder(laneCount, rows){
+  // rungs[row] = boolean[laneCount-1], 인접한 두 rung이 동시에 true일 수 없음
+  const rungs = [];
+  for(let r=0; r<rows; r++){
+    const row = new Array(laneCount-1).fill(false);
+    for(let i=0; i<laneCount-1; i++){
+      if(row[i-1]) continue; // 바로 왼쪽에 이미 rung이 있으면 스킵(교차 방지)
+      if(Math.random() < 0.32) row[i] = true;
+    }
+    rungs.push(row);
+  }
+  return rungs;
+}
+
+function tracePath(rungs, laneCount, startLane){
+  // row별로 지나가는 레인을 기록: path[row] = lane (row 이후 위치)
+  let lane = startLane;
+  const laneAtRow = [lane];
+  for(let r=0; r<rungs.length; r++){
+    const row = rungs[r];
+    if(lane < laneCount-1 && row[lane]) lane = lane+1;
+    else if(lane > 0 && row[lane-1]) lane = lane-1;
+    laneAtRow.push(lane);
+  }
+  return laneAtRow; // 길이 rows+1, laneAtRow[0]=start, laneAtRow[rows]=final
+}
+
+/* ============================================================
+   레이스 세팅
+   ============================================================ */
+function setupRace(){
+  const laneCount = FRUITS.length;
+  const rows = 13;
+  const rungs = generateLadder(laneCount, rows);
+
+  const canvas = document.getElementById('ladder-canvas');
+  const cssWidth = canvas.parentElement.clientWidth;
+  const cssHeight = Math.round(cssWidth * 1.05);
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = cssWidth * dpr;
+  canvas.height = cssHeight * dpr;
+  canvas.style.height = cssHeight + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+
+  const topPad = 44, bottomPad = 40;
+  const sidePad = 30;
+  const trackTop = topPad, trackBottom = cssHeight - bottomPad;
+  const laneGap = (cssWidth - sidePad*2) / (laneCount-1);
+  const laneX = FRUITS.map((_,i)=> sidePad + laneGap*i);
+  const rowGap = (trackBottom - trackTop) / rows;
+  const rowY = Array.from({length:rows+1}, (_,i)=> trackTop + rowGap*i);
+
+  ladderData = { rows, laneCount, rungs, laneX, rowY, trackTop, trackBottom, cssWidth, cssHeight };
+
+  // 선택한 과일은 항상 가운데(2번 인덱스) 출발, 나머지는 랜덤 배치
+  const others = FRUITS.filter(f=>f.id !== selectedFruit.id);
+  shuffle(others);
+  const order = [...others.slice(0,2), selectedFruit, ...others.slice(2)];
+  // order[2] = 선택 캐릭터가 가운데 오도록 재배열
+  const finalOrder = new Array(laneCount);
+  finalOrder[2] = selectedFruit;
+  let oi = 0;
+  for(let i=0;i<laneCount;i++){
+    if(i===2) continue;
+    finalOrder[i] = others[oi++];
+  }
+
+  racers = finalOrder.map((fruit, lane)=>{
+    const laneAtRow = tracePath(rungs, laneCount, lane);
+    const waypoints = buildWaypoints(laneAtRow, laneX, rowY);
+    const totalLen = pathLength(waypoints);
+    return {
+      fruit, startLane:lane, finalLane: laneAtRow[rows],
+      waypoints, totalLen,
+      duration: 3600 + Math.random()*1800, // 3.6s ~ 5.4s
+      isPlayer: fruit.id === selectedFruit.id,
+    };
+  });
+
+  drawStaticLadder(ctx, ladderData);
+  drawRacerLabels(ctx, ladderData, racers);
+  runCountdown(()=> startRace(ctx));
+}
+
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]] = [arr[j],arr[i]];
+  }
+}
+
+function buildWaypoints(laneAtRow, laneX, rowY){
+  const pts = [];
+  pts.push({x:laneX[laneAtRow[0]], y:rowY[0]});
+  for(let r=1; r<laneAtRow.length; r++){
+    const prevLane = laneAtRow[r-1], lane = laneAtRow[r];
+    if(lane !== prevLane){
+      pts.push({x:laneX[prevLane], y:rowY[r]});
+      pts.push({x:laneX[lane], y:rowY[r]});
+    } else {
+      pts.push({x:laneX[lane], y:rowY[r]});
+    }
+  }
+  return pts;
+}
+
+function pathLength(pts){
+  let len = 0;
+  for(let i=1;i<pts.length;i++){
+    len += Math.hypot(pts[i].x-pts[i-1].x, pts[i].y-pts[i-1].y);
+  }
+  return len;
+}
+
+function pointAtDistance(pts, targetLen){
+  let acc = 0;
+  for(let i=1;i<pts.length;i++){
+    const segLen = Math.hypot(pts[i].x-pts[i-1].x, pts[i].y-pts[i-1].y);
+    if(acc + segLen >= targetLen || i === pts.length-1){
+      const remain = segLen === 0 ? 0 : (targetLen - acc) / segLen;
+      const t = Math.max(0, Math.min(1, remain));
+      return {
+        x: pts[i-1].x + (pts[i].x-pts[i-1].x)*t,
+        y: pts[i-1].y + (pts[i].y-pts[i-1].y)*t
+      };
+    }
+    acc += segLen;
+  }
+  return pts[pts.length-1];
+}
+
+/* ============================================================
+   그리기
+   ============================================================ */
+function drawStaticLadder(ctx, d){
+  ctx.clearRect(0,0,d.cssWidth,d.cssHeight);
+
+  // 레인(세로줄)
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+  for(let i=0;i<d.laneCount;i++){
+    ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+    ctx.beginPath();
+    ctx.moveTo(d.laneX[i], d.trackTop);
+    ctx.lineTo(d.laneX[i], d.trackBottom);
+    ctx.stroke();
+  }
+
+  // 가로줄(사다리 발판)
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+  ctx.lineWidth = 3;
+  for(let r=0;r<d.rungs.length;r++){
+    d.rungs[r].forEach((on,i)=>{
+      if(!on) return;
+      const y = d.rowY[r+1];
+      ctx.beginPath();
+      ctx.moveTo(d.laneX[i], y);
+      ctx.lineTo(d.laneX[i+1], y);
+      ctx.stroke();
+    });
+  }
+
+  // 결승선
+  ctx.fillStyle = 'rgba(255,210,63,0.12)';
+  ctx.fillRect(0, d.trackBottom-4, d.cssWidth, 8);
+  ctx.font = '600 11px "Noto Sans KR", sans-serif';
+  ctx.fillStyle = 'rgba(255,210,63,0.85)';
+  ctx.textAlign = 'center';
+  ctx.fillText('GOAL', d.cssWidth/2, d.trackBottom + 22);
+}
+
+function drawFruitToken(ctx, fruit, x, y, r){
+  ctx.save();
+  ctx.translate(x - r, y - r);
+  ctx.scale(r*2/64, r*2/64);
+  const div = document.createElement('div');
+  // 캔버스에는 SVG를 직접 그릴 수 없으므로 간단한 도형으로 재현
+  ctx.restore();
+  drawFruitShape(ctx, fruit.id, x, y, r);
+}
+
+function drawFruitShape(ctx, id, x, y, r){
+  ctx.save();
+  ctx.translate(x,y);
+  const hexOf = {strawberry:'#ff5a5f', blueberry:'#3a86ff', lemon:'#ffd93d', kiwi:'#8bc34a', grape:'#b983ff'};
+  ctx.fillStyle = hexOf[id];
+  ctx.beginPath();
+  ctx.arc(0,0,r,0,Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.beginPath(); ctx.arc(-r*0.32,-r*0.05,r*0.14,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(r*0.32,-r*0.05,r*0.14,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+  ctx.lineWidth = Math.max(1.4, r*0.1);
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.arc(0, r*0.12, r*0.34, 0.15*Math.PI, 0.85*Math.PI);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawRacerLabels(ctx, d, racers){
+  racers.forEach(rc=>{
+    drawFruitShape(ctx, rc.fruit.id, d.laneX[rc.startLane], d.trackTop - 20, 14);
+  });
+}
+
+/* ============================================================
+   카운트다운 + 레이스 실행
+   ============================================================ */
+function runCountdown(onDone){
+  const el = document.getElementById('countdown');
+  el.classList.remove('hidden');
+  const seq = ['3','2','1','GO!'];
+  let i = 0;
+  el.textContent = seq[i];
+  const timer = setInterval(()=>{
+    i++;
+    if(i >= seq.length){
+      clearInterval(timer);
+      el.classList.add('hidden');
+      onDone();
+      return;
+    }
+    el.textContent = seq[i];
+  }, 650);
+}
+
+function startRace(ctx){
+  const startTime = performance.now();
+  racers.forEach(r=>{ r.done=false; r.finishTime=null; });
+
+  function frame(now){
+    const t = now - startTime;
+    drawStaticLadder(ctx, ladderData);
+
+    let allDone = true;
+    racers.forEach(r=>{
+      const progress = Math.min(1, t / r.duration);
+      if(progress < 1) allDone = false;
+      else if(r.finishTime === null) r.finishTime = t;
+
+      const dist = progress * r.totalLen;
+      const pos = pointAtDistance(r.waypoints, dist);
+
+      // 지나온 궤적
+      ctx.strokeStyle = hexWithAlpha(r.fruit.hex, 0.35);
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      let acc = 0;
+      let started = false;
+      for(let i=1;i<r.waypoints.length;i++){
+        const a = r.waypoints[i-1], b = r.waypoints[i];
+        const segLen = Math.hypot(b.x-a.x,b.y-a.y);
+        if(acc+segLen <= dist){
+          if(!started){ ctx.moveTo(a.x,a.y); started=true; }
+          ctx.lineTo(b.x,b.y);
+        }
+        acc += segLen;
+        if(acc > dist) break;
+      }
+      ctx.stroke();
+
+      drawFruitShape(ctx, r.fruit.id, pos.x, pos.y, r.isPlayer ? 15 : 12);
+    });
+
+    if(!allDone){
+      animFrame = requestAnimationFrame(frame);
+    } else {
+      showResults();
+    }
+  }
+  animFrame = requestAnimationFrame(frame);
+}
+
+function hexWithAlpha(hex, alpha){
+  const n = parseInt(hex.slice(1),16);
+  const r=(n>>16)&255, g=(n>>8)&255, b=n&255;
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+/* ============================================================
+   결과 화면
+   ============================================================ */
+function showResults(){
+  const ranked = [...racers].sort((a,b)=> a.finishTime - b.finishTime);
+  const listEl = document.getElementById('rank-list');
+  listEl.innerHTML = '';
+  const medalClass = ['gold','silver','bronze'];
+  ranked.forEach((r, idx)=>{
+    const row = document.createElement('div');
+    row.className = 'rank-row' + (medalClass[idx] ? ' '+medalClass[idx] : '');
+    row.innerHTML = `
+      <span class="rank-num">${idx+1}</span>
+      <span class="rank-icon">${fruitSVG(r.fruit.id,32)}</span>
+      <span class="rank-name">${r.fruit.name}${r.isPlayer ? ' (나)' : ''}</span>
+      <span class="rank-time">${(r.finishTime/1000).toFixed(2)}초</span>
+    `;
+    listEl.appendChild(row);
+  });
+  document.getElementById('result-overlay').classList.remove('hidden');
+}
+
+document.getElementById('btn-again').addEventListener('click', ()=>{
+  document.getElementById('result-overlay').classList.add('hidden');
+  setupRace();
+});
+
+document.getElementById('btn-restart').addEventListener('click', ()=>{
+  document.getElementById('result-overlay').classList.add('hidden');
+  document.getElementById('screen-race').classList.add('hidden');
+  document.getElementById('screen-select').classList.remove('hidden');
+  document.querySelectorAll('.racer-card').forEach(c=>c.classList.remove('selected'));
+  document.getElementById('btn-start').disabled = true;
+  selectedFruit = null;
+});
+
+window.addEventListener('resize', ()=>{
+  if(!document.getElementById('screen-race').classList.contains('hidden') && ladderData){
+    // 리사이즈 시 현재 진행 중인 애니메이션은 유지하고 캔버스만 재설정하지 않음(단순화)
+  }
+});
+</script>
+</body>
+</html>
