@@ -1,0 +1,90 @@
+/* [담당2] 로그인 화면 · 계정 표시. part5 styles.css 의 색(--accent 등)이 있으면 그대로 따른다 */
+
+/* 로그인 전에는 원래 화면을 숨긴다 */
+body.auth-locked > *:not(.auth-gate) { display: none !important; }
+
+.auth-gate {
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px; background: #f5f7fb;
+  font-family: Pretendard, Inter, system-ui, sans-serif; color: #172033;
+}
+.auth-gate[hidden] { display: none; }
+
+.auth-card {
+  width: 100%; max-width: 400px;
+  background: #fff; border: 1px solid #e5e9f2; border-radius: 16px;
+  padding: 32px 28px; box-shadow: 0 8px 24px rgba(23, 32, 51, 0.06);
+}
+.auth-eyebrow { margin: 0; font-weight: 800; letter-spacing: 0.12em; font-size: 12px; color: var(--accent, #5468ff); }
+.auth-card h1 { margin: 6px 0 20px; font-size: 26px; }
+
+.auth-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: #eef1ff; padding: 4px; border-radius: 10px; margin-bottom: 20px; }
+.auth-tabs button {
+  border: 0; border-radius: 8px; padding: 9px; font: inherit; font-weight: 700;
+  background: transparent; color: #667085; cursor: pointer;
+}
+.auth-tabs button[aria-selected="true"] { background: #fff; color: #172033; box-shadow: 0 1px 2px rgba(23, 32, 51, 0.08); }
+
+.auth-card form { display: grid; gap: 14px; }
+.auth-card form[hidden] { display: none; }
+.auth-card label { display: grid; gap: 6px; font-size: 14px; font-weight: 600; color: #344054; }
+.auth-card input {
+  width: 100%; box-sizing: border-box; padding: 12px; font: inherit; font-size: 16px;
+  border: 1px solid #d5dae5; border-radius: 10px;
+}
+.auth-card input:focus-visible,
+.auth-card button:focus-visible { outline: 3px solid rgba(84, 104, 255, 0.35); outline-offset: 2px; }
+
+.auth-primary {
+  margin-top: 4px; border: 0; border-radius: 10px; padding: 13px;
+  font: inherit; font-weight: 700; color: #fff; background: #172033; cursor: pointer;
+}
+.auth-primary:disabled { opacity: 0.6; cursor: default; }
+
+.auth-msg { min-height: 1.4em; margin: 16px 0 0; font-size: 14px; line-height: 1.5; }
+.auth-msg:empty { display: none; }
+.auth-msg-error { color: #b42318; }
+.auth-msg-success { color: #027a48; }
+.auth-msg-info { color: #667085; }
+
+/* 로그인 후 오른쪽 위 계정 표시 */
+.auth-account {
+  position: fixed; top: 12px; right: 12px; z-index: 900;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end;
+  max-width: calc(100vw - 24px);
+  padding: 6px 6px 6px 14px; background: #fff; border: 1px solid #e5e9f2; border-radius: 999px;
+  font: 13px/1.4 Pretendard, Inter, system-ui, sans-serif; color: #344054;
+  box-shadow: 0 2px 8px rgba(23, 32, 51, 0.06);
+}
+.auth-account[hidden] { display: none; }
+.auth-email { font-weight: 700; overflow-wrap: anywhere; }
+.auth-plan { color: #667085; }
+.auth-plan:empty { display: none; }
+.auth-logout {
+  border: 1px solid #d5dae5; border-radius: 999px; padding: 6px 12px;
+  background: #fff; color: #172033; font: inherit; font-weight: 700; cursor: pointer;
+}
+
+/* 결제 (payment.js) */
+.pay-upgrade {
+  border: 0; border-radius: 999px; padding: 6px 12px;
+  background: var(--accent, #5468ff); color: #fff; font: inherit; font-weight: 700; cursor: pointer;
+}
+.pay-upgrade:disabled { opacity: 0.6; cursor: default; }
+.pay-banner {
+  position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 950;
+  display: flex; align-items: center; gap: 12px; max-width: min(560px, calc(100vw - 24px));
+  padding: 10px 10px 10px 16px; border-radius: 12px; border: 1px solid;
+  font: 14px/1.5 Pretendard, Inter, system-ui, sans-serif; box-shadow: 0 4px 12px rgba(23, 32, 51, 0.08);
+}
+.pay-banner button { border: 0; background: transparent; font-size: 18px; line-height: 1; cursor: pointer; color: inherit; padding: 4px 8px; }
+.pay-banner-info { background: #f2f4f7; border-color: #d0d5dd; color: #344054; }
+.pay-banner-success { background: #ecfdf3; border-color: #abefc6; color: #067647; }
+.pay-banner-error { background: #fef3f2; border-color: #fecdca; color: #b42318; }
+
+@media (max-width: 520px) {
+  .pay-banner { top: auto; bottom: 12px; }
+  .auth-card { padding: 24px 20px; }
+  .auth-account { position: static; margin: 12px 16px 0; border-radius: 12px; }
+}

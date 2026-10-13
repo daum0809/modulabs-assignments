@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>답변 카드 확인 — ShopInsight AI</title>
+<link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="answer-card.css">
+<style>
+  .demo-btns { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+  .demo-btns button[aria-pressed="true"] { outline: 3px solid rgba(84, 104, 255, .45); }
+  .demo-note { color: #667085; font-size: 14px; margin: 0 0 12px; }
+</style>
+</head>
+<body>
+<main class="wrap">
+<header><p class="eyebrow">[담당5] ANSWER CARD</p><h1>답변 카드 확인</h1>
+<p>PR #1 AI 답변 형식({summary, facts, hypotheses, actions, limitations})을 카드로 그린다. 아래 응답은 모두 <b>예시</b>이고, 숫자는 샘플 데이터로 팀 화면이 계산해 보여 준 값만 썼다.</p></header>
+<article class="insight">
+  <h2>예시 응답 고르기</h2>
+  <div class="demo-btns" id="btns"></div>
+  <p class="demo-note" id="result"></p>
+  <div id="answer" aria-live="polite"></div>
+</article>
+</main>
+<script src="answer-card.js"></script>
+<script>
+const NORMAL = {
+  summary: "광고비와 방문은 20.0% 늘었지만 구매는 26.1%, 매출은 18.5% 줄었습니다.",
+  facts: [
+    "광고비 +20.0%, 방문 +20.0%로 유입은 늘었습니다.",
+    "구매 -26.1%, 매출 -18.5%로 줄었습니다.",
+    "구매전환율이 3.6% → 2.2%로 떨어졌습니다."
+  ],
+  hypotheses: [
+    "방문 이후 구매로 이어지는 단계에서 이탈이 늘었을 수 있습니다.",
+    "Google 채널의 ROAS가 -53.7%로 가장 크게 떨어져, 이 채널 유입의 질이 낮아졌을 수 있습니다."
+  ],
+  actions: [
+    { priority: 1, action: "Google 채널을 상품별로 나눠 구매전환율을 확인한다", reason: "ROAS 하락 폭이 가장 크다" },
+    { priority: 2, action: "장바구니 → 구매 단계 이탈을 상품별로 비교한다", reason: "방문은 늘었는데 구매가 줄었다" },
+    { priority: 3, action: "늘린 광고비의 채널 배분을 다시 본다", reason: "광고비는 늘었지만 매출은 줄었다" }
+  ],
+  limitations: [
+    "2개월 데이터만으로는 계절 요인을 구분할 수 없습니다.",
+    "원인 후보는 지표 변화에서 나온 것이라 확정할 수 없습니다."
+  ]
+};
+const EXAMPLES = {
+  "정상": NORMAL,
+  "실행 제안 5개(순서 섞임)": { ...NORMAL, actions: [
+    { priority: 3, action: "늘린 광고비의 채널 배분을 다시 본다", reason: "광고비는 늘었지만 매출은 줄었다" },
+    { priority: 1, action: "Google 채널을 상품별로 나눠 구매전환율을 확인한다", reason: "ROAS 하락 폭이 가장 크다" },
+    { priority: 5, action: "다음 달 같은 분석을 반복한다", reason: "추세 확인" },
+    { priority: 2, action: "장바구니 → 구매 단계 이탈을 상품별로 비교한다", reason: "방문은 늘었는데 구매가 줄었다" },
+    { priority: 4, action: "Naver 채널 성과도 함께 본다", reason: "비교 기준" }
+  ]},
+  "빈 배열": { summary: "비교할 수 있는 데이터가 부족합니다.", facts: [], hypotheses: [], actions: [], limitations: [] },
+  "깨진 응답(JSON 아님)": "죄송합니다. 분석 결과는 다음과 같습니다: 매출이 줄었고 광고비가 늘었습니다.",
+  "summary 없음": { facts: ["구매전환율이 3.6% → 2.2%로 떨어졌습니다."], actions: [] },
+  "코드 블록 + 태그 섞임": "```json\n" + JSON.stringify({
+    summary: "요약 <img src=x onerror=\"window.__xss=1\">",
+    facts: ["<script>window.__xss=1<\/script>구매전환율 3.6% → 2.2%"],
+    hypotheses: ["<b>굵게</b> 보이면 안 됨"],
+    actions: [{ priority: 1, action: "<a href=javascript:alert(1)>링크</a>", reason: "태그는 글자로" }],
+    limitations: []
+  }) + "\n```"
+};
+const btns = document.getElementById("btns");
+for (const name of Object.keys(EXAMPLES)) {
+  const b = document.createElement("button");
+  b.type = "button"; b.textContent = name;
+  b.addEventListener("click", () => {
+    btns.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", x === b));
+    const r = renderAnalysis(EXAMPLES[name], { source: "example" });
+    document.getElementById("result").textContent = `renderAnalysis → ${JSON.stringify(r)}`;
+  });
+  btns.append(b);
+}
+btns.firstChild.click();
+</script>
+</body></html>

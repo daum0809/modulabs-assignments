@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>매출분석 툴</title>
+<link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="approval.css"><link rel="stylesheet" href="answer-card.css"><link rel="stylesheet" href="status-card.css"><link rel="stylesheet" href="dashboard.css"><link rel="stylesheet" href="../part2/auth.css">
+</head>
+<body>
+<link rel="stylesheet" href="diagnosis.css"><!-- [5번] 진단서 화면: 앞 CSS 를 덮어쓰도록 맨 마지막에 -->
+<main class="wrap">
+<header><h1>매출분석 툴</h1><p>매출 CSV를 올리면 지표를 코드로 계산하고, 계획을 승인하면 AI가 계산 결과를 해석합니다.</p><ol class="steps" aria-label="사용 순서"><li>CSV 올리기</li><li>지표 · 차트 확인</li><li>아래에서 질문 → 계획 승인</li><li>AI 해석</li></ol></header>
+<section class="actions">
+<label class="upload">CSV 올리기<input id="file" type="file" accept=".csv,text/csv" multiple></label>
+<button id="sample">예시 데이터로 시작</button><span id="status" role="status">예시 데이터(6~9월 CSV 4개)로 시작하거나, 월별 CSV를 한꺼번에 골라 올리세요.</span>
+</section>
+<div id="errors" class="errors" role="alert" hidden></div>
+<section id="app" hidden>
+<section id="verdict" class="verdict" aria-labelledby="verdict-line"><p class="verdict-meta" id="verdict-meta"></p><h2 class="verdict-line" id="verdict-line"></h2><div class="decomp" id="decomp" role="list" aria-label="매출 분해: 방문 × 구매 전환율 × 객단가"></div><p class="verdict-channel" id="verdict-channel" hidden></p><p class="verdict-detail" id="insight"></p></section>
+<p class="zone zone-code"><b>코드 계산</b><span>AI를 쓰지 않은 숫자 · 3번 정답표와 같은 계산</span></p>
+<p id="gaps" class="gaps" role="note" hidden></p>
+<div class="kpis" id="kpis"></div>
+<div class="grid">
+<article class="panel"><h2>월별 매출</h2><div id="months"></div></article>
+<article class="panel"><h2>이번 달 구매 퍼널</h2><div id="funnel"></div></article>
+</div>
+<article class="panel"><h2>판매 채널별 ROAS <small class="panel-sub">이번 달 · 전월 대비</small></h2><div id="channels"></div></article>
+<article class="panel diag" id="diagnostics" hidden><h2>쿠팡 경쟁가 진단 <small class="panel-sub">코드 계산</small></h2><div class="diag-body"></div></article>
+<p class="zone zone-ai"><b>AI 해석</b><span>승인한 뒤에만 부르고, 위 계산 결과만 보냅니다</span></p>
+<article class="insight"><h2>AI에게 묻기</h2><h3>자주 묻는 질문</h3><div class="faq" aria-label="자주 묻는 질문"><button type="button" class="faq-btn">매출이 왜 떨어졌어?</button><button type="button" class="faq-btn">광고비는 늘었는데 왜 매출이 안 늘었어?</button><button type="button" class="faq-btn">어떤 판매 채널의 성과가 가장 많이 변했어?</button><button type="button" class="faq-btn" data-needs="unit_price competitor_min_price">어떤 상품을 먼저 확인해야 해?</button><button type="button" class="faq-btn" data-needs="add_to_cart">구매 전환율이 어느 단계에서 떨어졌어?</button><button type="button" class="faq-btn">지금 가장 먼저 확인해야 할 지표가 뭐야?</button></div><div class="question"><input id="question" value="광고비는 늘었는데 왜 매출이 떨어졌어?" aria-label="분석 질문"><button id="ask">분석하기</button></div><div id="answer" aria-live="polite"></div></article>
+</section>
+</main>
+<!-- [담당2] 로그인 · 결제: 다른 스크립트보다 먼저 -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../part2/config.js"></script>
+<script src="../part2/auth.js"></script>
+<script src="https://js.tosspayments.com/v2/standard"></script>
+<script src="../part2/payment.js"></script>
+<script src="answer-card.js"></script><script src="status-card.js"></script><script src="approval.js"></script><script type="module" src="app.js"></script>
+</body></html>

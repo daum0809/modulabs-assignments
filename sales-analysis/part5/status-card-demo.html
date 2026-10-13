@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>로딩 · 실패 화면 확인 — ShopInsight AI</title>
+<link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="answer-card.css"><link rel="stylesheet" href="status-card.css">
+<style>
+  .demo-btns { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+  .demo-btns button[aria-pressed="true"] { outline: 3px solid rgba(84, 104, 255, .45); }
+  .demo-note { color: #667085; font-size: 14px; margin: 0 0 12px; min-height: 1.5em; }
+  .demo-group { font-size: 13px; font-weight: 700; color: #667085; margin: 12px 0 6px; }
+</style>
+</head>
+<body>
+<main class="wrap">
+<header><p class="eyebrow">[담당5] LOADING · ERROR</p><h1>로딩 · 실패 화면 확인</h1>
+<p>AI 서버를 부르지 않고 <b>가짜 요청</b>으로 확인한다. 실제 서버(4번 Supabase)는 <code>runAnalysis(postJSON(주소, {result, question}))</code> 한 줄로 붙는다. 10초가 지나면 "오래 걸림" 안내, 60초가 지나면 자동 중단(4번 서버 응답 7~27초).</p></header>
+<article class="insight">
+  <h2>가짜 요청 고르기</h2>
+  <div id="btns"></div>
+  <p class="demo-note" id="result"></p>
+  <div id="answer" aria-live="polite"></div>
+</article>
+</main>
+<script src="answer-card.js"></script>
+<script src="status-card.js"></script>
+<script>
+// 가짜 요청: ms 뒤에 값을 돌려준다. signal 을 무시해도 status-card 가 끊어 준다.
+const wait = (ms, v) => (signal) => new Promise((ok) => setTimeout(() => ok(typeof v === "function" ? v() : v), ms));
+const res = (status, body) => () => new Response(typeof body === "string" ? body : JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+
+const NORMAL = {
+  summary: "(예시) 방문은 늘었지만 구매가 줄어 매출이 떨어졌습니다.",
+  facts: ["(예시) 방문 수는 늘었습니다.", "(예시) 구매 수와 매출은 줄었습니다."],
+  hypotheses: ["(예시) 방문 이후 구매 단계에서 이탈이 늘었을 수 있습니다."],
+  actions: [{ priority: 1, action: "(예시) 채널별 구매전환율을 비교한다", reason: "방문과 구매가 반대로 움직였다" }],
+  limitations: ["(예시) 가짜 응답입니다. 숫자를 넣지 않았습니다."]
+};
+
+let log = [];
+const GROUPS = {
+  "성공": {
+    "정상 · JSON (1.5초)": { fn: wait(1500, res(200, { analysis: JSON.stringify(NORMAL) })) },
+    "정상 · ```json 코드 블록 (1.5초)": { fn: wait(1500, res(200, { analysis: "```json\n" + JSON.stringify(NORMAL) + "\n```" })) },
+    "정상 · 그냥 글 (1.5초)": { fn: wait(1500, res(200, { analysis: "(예시) 매출이 줄었습니다.\n원인 후보: 구매 단계 이탈 <b>태그는 글자로</b>" })) },
+    "느림 · 15초 뒤 정상": { fn: wait(15000, res(200, { analysis: JSON.stringify(NORMAL) })) },
+  },
+  "실패": {
+    "시간 초과 (3초로 줄임)": { fn: () => new Promise(() => {}), opts: { timeoutMs: 3000 } },
+    "시간 초과 (60초 그대로)": { fn: () => new Promise(() => {}) },
+    "연결 실패": { fn: (signal) => fetch("http://127.0.0.1:9/", { signal }) },
+    "429 오늘 한도 초과": { fn: wait(800, res(429, { error: "오늘의 무료 분석 5회를 모두 사용했습니다." })) },
+    "401 키 문제": { fn: wait(800, res(401, { error: "Invalid API key sk-테스트" })) },
+    "500 서버 오류": { fn: wait(800, res(500, { detail: { error: { message: "internal" } } })) },
+    "ok:false (3번 오류 모양)": { fn: wait(800, res(200, { ok: false, error_type: "empty_file", message: "빈 파일입니다. 데이터가 있는 CSV를 올려 주세요." })) },
+    "JSON 아닌 응답": { fn: wait(800, res(200, "<html>Bad Gateway</html>")) },
+    "빈 analysis": { fn: wait(800, res(200, { analysis: "" })) },
+    "analysis JSON 이 깨짐": { fn: wait(800, res(200, { analysis: "{\"summary\": \"끊긴" })) },
+  },
+  "겹침": {
+    "연달아 두 번 (앞 3초 · 뒤 1초)": { run: () => {
+      runAnalysis(wait(3000, res(200, { analysis: "첫 번째 요청 — 이게 보이면 실패" }))).then((r) => log.push(["첫", r.kind || "ok"]));
+      return runAnalysis(wait(1000, res(200, { analysis: "두 번째 요청 — 이것만 남아야 한다" }))).then((r) => (log.push(["둘", r.kind || "ok"]), r));
+    } },
+  },
+};
+
+const box = document.getElementById("btns");
+for (const [g, list] of Object.entries(GROUPS)) {
+  box.insertAdjacentHTML("beforeend", `<div class="demo-group">${g}</div>`);
+  const row = document.createElement("div");
+  row.className = "demo-btns";
+  for (const [name, s] of Object.entries(list)) {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = name;
+    b.addEventListener("click", async () => {
+      box.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", x === b));
+      document.getElementById("result").textContent = `${name} → 요청 중…`;
+      const r = await (s.run ? s.run() : runAnalysis(s.fn, s.opts));
+      document.getElementById("result").textContent = `${name} → ${JSON.stringify({ ok: r.ok, kind: r.kind })}`;
+    });
+    row.append(b);
+  }
+  box.append(row);
+}
+</script>
+</body></html>

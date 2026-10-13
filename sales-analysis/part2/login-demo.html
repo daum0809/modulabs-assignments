@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>로그인 확인 - 매출분석 툴</title>
+<link rel="stylesheet" href="auth.css">
+<style>
+  body { margin: 0; font-family: Pretendard, Inter, system-ui, sans-serif; background: #f5f7fb; color: #172033; }
+  main { max-width: 720px; margin: auto; padding: 72px 20px; }
+  .panel { background: #fff; border: 1px solid #e5e9f2; border-radius: 16px; padding: 20px; margin-top: 14px; }
+  button { border: 0; border-radius: 10px; padding: 10px 14px; background: #172033; color: #fff; font-weight: 700; cursor: pointer; }
+  code { background: #eef1ff; padding: 2px 6px; border-radius: 6px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>로그인 확인 페이지</h1>
+  <p>이 화면이 보이면 로그인된 상태예요. (5번 대시보드에 붙이기 전 확인용)</p>
+  <section class="panel">
+    <p>사용자: <code id="who">-</code></p>
+    <p>요금제: <code id="plan">-</code></p>
+    <button id="quota">분석 1회 사용해 보기 (consumeQuota)</button>
+    <p id="quota-result"></p>
+  </section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="auth.js"></script>
+<script src="https://js.tosspayments.com/v2/standard"></script>
+<script src="payment.js"></script>
+<script>
+  Auth.onReady(async (user) => {
+    document.getElementById("who").textContent = `${user.email} (${user.id})`;
+    const profile = await Auth.getProfile();
+    document.getElementById("plan").textContent = profile ? `${profile.plan} · 오늘 ${profile.daily_usage}회` : "조회 실패";
+  });
+  document.getElementById("quota").addEventListener("click", async () => {
+    const out = document.getElementById("quota-result");
+    try {
+      out.textContent = (await Auth.consumeQuota()) ? "사용 가능: 1회 차감했어요." : "오늘 한도를 모두 썼어요.";
+      const profile = await Auth.getProfile();
+      document.getElementById("plan").textContent = `${profile.plan} · 오늘 ${profile.daily_usage}회`;
+    } catch (err) {
+      out.textContent = "호출 실패: " + (err.message || err);
+    }
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,68 @@
+/* [담당5] 답변 카드 — answer-card.js 가 만드는 .ac 스타일
+   PR #2 styles.css 의 변수를 쓰고, 없으면 괄호 안 기본값을 쓴다. */
+
+.ac {
+  display: grid; gap: 14px;
+  padding: 18px 20px;
+  background: #fff;
+  border: 1px solid var(--line, #e5e9f2);
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(23, 32, 51, .05), 0 4px 14px rgba(23, 32, 51, .05);
+  line-height: 1.6;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.ac-head { display: flex; justify-content: flex-end; }
+.ac-badge { font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
+.ac-src-ai { color: var(--accent, #5468ff); background: var(--accent-soft, #eef1ff); border: 1px solid #d8def8; }
+.ac-src-example { color: #8a5a00; background: #fff4e0; border: 1px solid #f2d19b; }
+
+.ac-summary { font-size: 18px; font-weight: 800; color: var(--ink, #172033); letter-spacing: -0.01em; margin-top: -6px; }
+
+.ac-sec { padding: 12px 14px; border-radius: 10px; }
+.ac-sec h4 { margin: 0 0 6px; font-size: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.ac-sec h4 small { font-size: 12px; font-weight: 500; color: var(--muted, #667085); }
+
+.ac-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.ac-list li { position: relative; padding-left: 20px; }
+.ac-none { font-size: 13px; color: var(--muted, #667085); }
+
+/* 확인된 사실 — 초록 */
+.ac-facts { background: #f3fbf6; border: 1px solid #cfeedd; }
+.ac-facts h4 { color: #027a48; }
+.ac-facts .ac-list li::before { content: "✓"; position: absolute; left: 2px; color: #027a48; font-weight: 800; }
+
+/* 원인 후보 — 주황 + 확정 아님 */
+.ac-hyps { background: #fffaf0; border: 1px dashed #f2c46d; }
+.ac-hyps h4 { color: #a15c00; }
+.ac-hyps .ac-list li::before { content: "?"; position: absolute; left: 3px; color: #a15c00; font-weight: 800; }
+.ac-tag { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 4px; color: #a15c00; background: #fff; border: 1px solid #f2c46d; }
+
+/* 실행 제안 */
+.ac-actions { background: var(--accent-soft, #eef1ff); border: 1px solid #d8def8; }
+.ac-actions h4 { color: var(--accent, #5468ff); }
+.ac-acts { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.ac-acts li { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 10px; align-items: start; padding: 10px 12px; background: #fff; border-radius: 8px; }
+.ac-pri { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--accent, #5468ff); color: #fff; font-size: 13px; font-weight: 800; }
+.ac-act { font-weight: 700; color: var(--ink, #172033); }
+.ac-why { font-size: 13px; color: var(--muted, #667085); }
+.ac-more { margin-top: 6px; font-size: 13px; color: var(--muted, #667085); }
+
+/* 분석 한계 — 회색 작게 */
+.ac-lims { background: #f9fafb; border: 1px solid #eaecf0; font-size: 13px; color: #475467; }
+.ac-lims h4 { color: #475467; font-size: 13px; }
+.ac-lims .ac-list li::before { content: "·"; position: absolute; left: 6px; font-weight: 800; }
+
+/* 형식 오류 */
+.ac-error { border-color: #fecdca; border-top: 3px solid #b42318; }
+.ac-error .ac-summary { color: #b42318; }
+.ac-reason { font-size: 14px; color: #475467; }
+.ac-raw summary { cursor: pointer; font-size: 13px; color: var(--muted, #667085); }
+.ac-raw pre { margin: 6px 0 0; padding: 10px 12px; max-height: 180px; overflow: auto; background: #f9fafb; border-radius: 8px; font-size: 12px; white-space: pre-wrap; word-break: break-all; }
+
+@media (max-width: 520px) {
+  .ac { padding: 14px; }
+  .ac-summary { font-size: 16px; }
+  .ac-sec { padding: 10px 12px; }
+}

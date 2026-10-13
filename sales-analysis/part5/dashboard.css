@@ -1,0 +1,60 @@
+/* [5번] 연결 화면에서 새로 생긴 부분 — 오류 목록 · 채널 증감 · 퍼널 비율 · 경쟁가 진단
+   PR #2 styles.css 변수를 쓰고, 없으면 괄호 안 기본값을 쓴다. */
+
+.errors {
+  margin: -8px 0 18px; padding: 12px 16px;
+  background: #fef3f2; border: 1px solid #fecdca; border-left: 3px solid #b42318; border-radius: 0 10px 10px 0;
+  color: #7a271a; line-height: 1.6;
+}
+.errors ul { margin: 6px 0 0; padding-left: 18px; }
+.errors li { overflow-wrap: anywhere; }
+
+.panel-sub { font-size: 13px; font-weight: 500; color: var(--muted, #667085); margin-left: 4px; }
+
+/* 채널 막대 오른쪽: 값 + 증감 */
+#channels .barrow { grid-template-columns: 110px 1fr auto; }
+#channels .barrow span { white-space: nowrap; }
+#channels .barrow small { font-size: 13px; font-weight: 700; margin-left: 4px; }
+.barrow small.negative { color: #b42318; }
+.barrow small.positive { color: #027a48; }
+
+/* 퍼널 비율 */
+.funnel-step small { font-size: 12px; opacity: .8; margin-left: 4px; }
+
+/* 경쟁가 진단 */
+.diag .diag-body p { margin: 0 0 8px; }
+.diag-list { margin: 0 0 10px; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px 14px; }
+.diag-list li { position: relative; padding-left: 16px; font-size: 14px; word-break: keep-all; }
+.diag-list li::before { content: "•"; position: absolute; left: 3px; color: #a15c00; font-weight: 800; }
+.diag-note { font-size: 13px; color: #a15c00; background: #fffaf0; border: 1px dashed #f2c46d; border-radius: 8px; padding: 6px 10px; }
+.diag-rule { display: block; color: var(--muted, #667085); font-size: 12px; margin-top: 2px; }
+
+/* 2번 로그인(part2/auth.css)의 계정 상자는 position: fixed 라 스크롤을 따라와 대시보드 카드를 가린다.
+   대시보드에서만 페이지 맨 위에 두고(스크롤하면 같이 올라감) 그만큼 위 여백을 비운다. 2번 파일은 고치지 않는다. */
+body > .auth-account { position: absolute; }
+body:has(> .auth-account:not([hidden])) .wrap { padding-top: 84px; }
+
+@media (max-width: 520px) {
+  #channels .barrow { grid-template-columns: 90px 1fr auto; }
+  #channels .barrow small { display: block; margin-left: 0; text-align: right; }
+  /* 2번은 좁은 화면에서 static 으로 두는데, 상자가 body 맨 끝에 붙어 페이지 맨 아래로 간다 → 맨 위로 */
+  body > .auth-account { position: absolute; top: 12px; left: 16px; right: 16px; margin: 0; justify-content: flex-start; }
+  body:has(> .auth-account:not([hidden])) .wrap { padding-top: 106px; }
+}
+
+/* 없는 열 안내 · 계산 불가 근거 */
+.gaps { margin: 0 0 14px; font-size: 14px; color: #93370d; background: #fffaeb; border: 1px solid #fedf89; border-radius: 10px; padding: 10px 14px; line-height: 1.6; }
+.gaps ul { margin: 4px 0 0; padding-left: 18px; }
+.kpis .why { display: block; font-size: 12px; color: #b54708; margin: 2px 0; overflow-wrap: anywhere; }
+.faq-btn[hidden] { display: none; }
+
+/* 첫 화면 사용 순서 — 질문 · 승인 기능이 아래에 있다는 걸 처음부터 알린다 */
+.steps { display: flex; flex-wrap: wrap; gap: 6px 4px; list-style: none; counter-reset: step; margin: 12px 0 0; padding: 0; font-size: 14px; color: var(--muted, #667085); }
+.steps li { counter-increment: step; display: inline-flex; align-items: center; gap: 6px; }
+.steps li::before { content: counter(step); display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: #eef1ff; color: #5468ff; font-size: 12px; font-weight: 700; }
+.steps li:not(:last-child)::after { content: "→"; margin-left: 4px; color: #98a2b3; }
+
+/* 휴대폰에서 누르는 버튼은 높이 44px 이상 — 2번 계정 상자(프로 결제 · 로그아웃)도 여기서 맞춘다. 2번 파일은 고치지 않는다. */
+@media (max-width: 520px) {
+  .faq-btn, .sc-btn, #ask, body > .auth-account button { min-height: 44px; }
+}

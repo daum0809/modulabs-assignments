@@ -1,0 +1,85 @@
+/* [담당5] 로딩 · 실패 · 중단 카드 — status-card.js 가 만드는 .sc 스타일
+   PR #2 styles.css 의 변수를 쓰고, 없으면 괄호 안 기본값을 쓴다. */
+
+.sc {
+  display: grid; gap: 10px;
+  padding: 16px 18px;
+  background: #fff;
+  border: 1px solid var(--line, #e5e9f2);
+  border-radius: 14px;
+  line-height: 1.6;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+/* p 대신 div 를 쓴다 — 팀 styles.css 의 `#answer p` 카드 모양이 덮지 않게 */
+
+/* 로딩 */
+.sc-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.sc-label { font-weight: 700; color: var(--ink, #172033); }
+.sc-sec { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--muted, #667085); }
+.sc-row .sc-cancel { margin-left: auto; }
+.sc-spin {
+  width: 18px; height: 18px; flex: none;
+  border: 2.5px solid var(--accent-soft, #eef1ff);
+  border-top-color: var(--accent, #5468ff);
+  border-radius: 50%;
+  animation: sc-spin .8s linear infinite;
+}
+.sc-slow { font-size: 13px; color: #a15c00; background: #fffaf0; border: 1px solid #f2d19b; border-radius: 8px; padding: 6px 10px; }
+.sc-skel { display: grid; gap: 8px; }
+.sc-skel i {
+  display: block; height: 12px; border-radius: 6px;
+  background: linear-gradient(90deg, #f0f2f7 25%, #e4e8f1 50%, #f0f2f7 75%);
+  background-size: 200% 100%;
+  animation: sc-shimmer 1.4s ease-in-out infinite;
+}
+.sc-skel i:nth-child(1) { width: 70%; height: 16px; }
+.sc-skel i:nth-child(2) { width: 100%; }
+.sc-skel i:nth-child(3) { width: 85%; }
+
+@keyframes sc-spin { to { transform: rotate(360deg); } }
+@keyframes sc-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .sc-spin, .sc-skel i { animation: none; }
+}
+
+/* 실패 */
+.sc-fail { border-color: #fecdca; border-top: 3px solid #b42318; }
+.sc-title { font-size: 16px; font-weight: 800; color: #b42318; }
+.sc-body { color: #344054; }
+.sc-server-msg { font-size: 13px; color: #475467; background: #f9fafb; border: 1px solid #eaecf0; border-radius: 8px; padding: 6px 10px; overflow-wrap: anywhere; }
+.sc-server-raw { color: var(--muted, #667085); font-size: 12px; }
+.sc-note { font-size: 13px; color: #b54708; }
+.sc-trust { font-size: 13px; color: #027a48; background: #f3fbf6; border: 1px solid #cfeedd; border-radius: 8px; padding: 6px 10px; }
+/* 중단은 사용자가 한 일이라 빨강 대신 회색 */
+.sc-cancelled { border-color: var(--line, #e5e9f2); border-top-color: #98a2b3; }
+.sc-cancelled .sc-title { color: #475467; }
+
+.sc-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.sc-btn {
+  font: inherit; font-size: 14px; font-weight: 700;
+  padding: 7px 14px; border-radius: 8px; cursor: pointer;
+  color: #fff; background: var(--accent, #5468ff); border: 1px solid var(--accent, #5468ff);
+}
+.sc-btn-ghost { color: var(--accent, #5468ff); background: #fff; }
+.sc-btn:hover { filter: brightness(.95); }
+.sc-btn:focus-visible { outline: 3px solid rgba(84, 104, 255, .45); outline-offset: 2px; }
+
+/* 형식 없는 답변(그냥 글) */
+.sc-text-head { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.sc-badge { font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; color: var(--accent, #5468ff); background: var(--accent-soft, #eef1ff); border: 1px solid #d8def8; }
+.sc-badge-plain { color: #475467; background: #f2f4f7; border-color: #eaecf0; }
+.sc-text-body { color: var(--ink, #172033); display: grid; gap: 8px; }
+.sc-md-h { margin: 6px 0 0; font-size: 15px; font-weight: 800; color: var(--accent, #5468ff); }
+.sc-md-p { margin: 0; }
+.sc-md-list { margin: 0; padding-left: 22px; display: grid; gap: 4px; }
+.sc-note { font-size: 13px; color: var(--muted, #667085); }
+
+@media (max-width: 520px) {
+  .sc { padding: 14px; }
+  .sc-row .sc-cancel { margin-left: 0; }
+}
+
+/* 하루 한도 — 오류가 아니라 제한이라 주황 */
+.sc-quota { border-color: #fedf89; border-top-color: #dc6803; }
+.sc-quota .sc-title { color: #b54708; }
