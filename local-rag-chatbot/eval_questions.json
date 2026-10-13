@@ -1,0 +1,18 @@
+[
+  {"question": "아이가 아파서 수업에 못 갔어요. 어떻게 하나요?", "expected": "학원_운영_규정"},
+  {"question": "보강은 언제 하나요?", "expected": "학원_운영_규정"},
+  {"question": "돈 돌려받을 수 있나요?", "expected": "학원_운영_규정"},
+  {"question": "추석에도 수업하나요?", "expected": "학원_운영_규정"},
+  {"question": "중학생 영어 수업 시간이 궁금해요", "expected": "수강_안내"},
+  {"question": "학원비는 언제까지 내야 하나요?", "expected": "수강_안내"},
+  {"question": "형이랑 동생이 같이 다니면 할인되나요?", "expected": "수강_안내"},
+  {"question": "선생님과 면담하고 싶어요", "expected": "자주_묻는_질문"},
+  {"question": "셔틀버스 있나요?", "expected": "자주_묻는_질문"},
+  {"question": "시험 대비 수업이 있나요?", "expected": "자주_묻는_질문"},
+  {"question": "중간고사 한 달 전에 뭐부터 해야 해?", "expected": "시험_대비_계획"},
+  {"question": "시험 전날 밤새도 돼요?", "expected": "시험_대비_계획"},
+  {"question": "틀린 문제 정리하는 방법 알려줘", "expected": "오답노트_작성법"},
+  {"question": "같은 실수를 자꾸 반복해요", "expected": "오답노트_작성법"},
+  {"question": "공부할 때 핸드폰 때문에 집중이 안 돼요", "expected": "공부_습관_코칭"},
+  {"question": "초등학생은 하루에 얼마나 공부해야 하나요?", "expected": "공부_습관_코칭"}
+]
