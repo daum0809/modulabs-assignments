@@ -10,3 +10,5 @@
 | [pose-image-tool](pose-image-tool) | 참조 사진의 자세를 유지한 채 다른 인물·배경의 이미지를 만드는 도구 (OpenPose) | [daum0809/pose-image-tool](https://github.com/daum0809/pose-image-tool) |
 | [room-3d-reconstruction](room-3d-reconstruction) | 폰 영상으로 방을 3D 가우시안 스플랫으로 복원하는 Colab 노트북과 웹 뷰어 | [daum0809/room-3d-reconstruction](https://github.com/daum0809/room-3d-reconstruction) |
 | [game](game) | 과일 사다리 레이스 (HTML 게임) | [daum0809/game](https://github.com/daum0809/game) |
+| [gangsa-hours](gangsa-hours) | 강사 근무시간 입력·강사료 계산 앱과 개발 블로그, 사장 문제해결 AI PoC (데이터는 모두 체험용) | [daum0809/gangsa-hours](https://github.com/daum0809/gangsa-hours) |
+| [game2692](game2692) | 보물찾기 · 뜨겁고 차가운 온도계 (HTML 게임) | [daum0809/game2692](https://github.com/daum0809/game2692) |
