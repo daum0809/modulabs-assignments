@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>근무시간 입력</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@700&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#FBFBF9;--panel:#FFFFFF;--ink:#191C21;--muted:#6B7078;--line:#E2E5E1;
+  --brand:#1F3556;--brand-ink:#F3F5F9;--brand-soft:#E5EAF2;--pencil:#E9B949;
+  --alert:#A8392A;--alert-soft:#F8EEEC;--ok:#1F6B4E;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:light dark;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#0F1216;--panel:#171B21;--ink:#E9EBEE;--muted:#959AA3;--line:#2A303A;
+  --brand:#3E6293;--brand-ink:#F2F5FA;--brand-soft:#1A2230;--pencil:#F0C85A;
+  --alert:#E08270;--alert-soft:#2A1B18;--ok:#5FBF95;}}
+:root[data-theme="dark"]{--paper:#0F1216;--panel:#171B21;--ink:#E9EBEE;--muted:#959AA3;--line:#2A303A;
+  --brand:#3E6293;--brand-ink:#F2F5FA;--brand-soft:#1A2230;--pencil:#F0C85A;--alert:#E08270;--alert-soft:#2A1B18;--ok:#5FBF95;}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%}
+body{margin:0;min-height:100%;background:var(--paper);color:var(--ink);
+  font-family:"IBM Plex Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo",sans-serif;
+  font-size:15.5px;line-height:1.6;-webkit-text-size-adjust:100%}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:6px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+.wrap{max-width:560px;margin:0 auto;padding:0 14px 40px}
+header.bar{background:var(--brand);color:var(--brand-ink);padding:14px 16px;
+  padding-top:calc(14px + env(safe-area-inset-top,0px));display:flex;align-items:center;gap:11px;position:sticky;top:0;z-index:10}
+.bar .mark{width:32px;height:32px;border-radius:9px;background:var(--pencil);color:#2A2003;
+  display:grid;place-items:center;font-family:"Gowun Batang",serif;font-weight:700;font-size:16px}
+.bar b{font-weight:600;font-size:15px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar button{background:rgba(255,255,255,.14);border:0;color:inherit;padding:7px 12px;border-radius:999px;font-size:13px}
+
+h1.big{font-family:"Gowun Batang",serif;font-size:25px;line-height:1.35;margin:26px 0 8px}
+p.lead{color:var(--muted);font-size:14.5px;margin:0 0 22px}
+h2{font-size:16px;margin:26px 0 10px;font-weight:600}
+.hint{color:var(--muted);font-size:13px;margin:8px 0 0}
+
+.field{margin-bottom:15px}
+.field label{display:block;font-size:13.5px;font-weight:500;margin-bottom:6px}
+.field input,.field select{width:100%;border:1px solid var(--line);background:var(--panel);border-radius:11px;padding:12px}
+.btn{width:100%;border:0;background:var(--brand);color:var(--brand-ink);border-radius:12px;padding:14px;font-size:15.5px;font-weight:600}
+.btn.sec{background:transparent;border:1px solid var(--line);color:var(--ink);font-weight:500}
+.btn.sm{width:auto;padding:9px 14px;font-size:13.5px;border-radius:10px}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.ghost{width:100%;border:0;background:transparent;color:var(--muted);padding:14px;font-size:13.5px}
+
+.msg{border-radius:11px;padding:11px 13px;font-size:14px;margin:14px 0}
+.msg.err{background:var(--alert-soft);color:var(--ink)}
+.msg.ok{background:var(--brand-soft)}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:15px;margin-bottom:12px}
+.card h3{margin:0 0 4px;font-size:15px;font-weight:600}
+.card .sub{color:var(--muted);font-size:13px;margin:0}
+
+/* 날짜 그리드 */
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-top:10px}
+.gh{text-align:center;font-size:12px;color:var(--muted);padding:2px 0}
+.gh.sun{color:var(--alert)}
+.cell{border:1px solid var(--line);border-radius:9px;background:var(--panel);padding:4px 3px 5px;text-align:center;min-height:56px}
+.cell.blank{border:0;background:transparent}
+.cell .d{font-size:11px;color:var(--muted);line-height:1.3}
+.cell.sun .d{color:var(--alert)}
+.cell input{width:100%;border:0;background:transparent;text-align:center;font-size:15px;padding:3px 0;font-weight:500}
+.cell.has{background:var(--brand-soft);border-color:var(--brand-soft)}
+.weektag{grid-column:1/-1;font-size:11.5px;color:var(--muted);padding:6px 2px 0;border-top:1px dashed var(--line);margin-top:3px}
+
+.total{display:flex;align-items:baseline;gap:9px;margin-top:16px;padding:13px 15px;background:var(--brand-soft);border-radius:12px}
+.total span{font-size:13.5px;color:var(--muted)}
+.total b{font-size:23px;font-weight:600;margin-left:auto}
+
+.saving{font-size:12.5px;color:var(--muted);text-align:right;margin-top:7px;min-height:18px}
+.saving.ok{color:var(--ok)}
+.saving.err{color:var(--alert)}
+
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th{font-weight:600;color:var(--muted);font-size:12px}
+th:first-child,td:first-child{text-align:left}
+td.num{font-variant-numeric:tabular-nums}
+tr.sum td{font-weight:600;border-top:2px solid var(--line);border-bottom:0}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.pill{display:inline-block;font-size:11.5px;padding:1px 7px;border-radius:999px;background:var(--brand-soft);color:var(--brand)}
+.pill.h{background:var(--pencil);color:#2A2003}
+
+.rosterrow{display:grid;grid-template-columns:1fr 78px 92px 1fr;gap:6px;margin-bottom:6px;align-items:center}
+.rosterrow input,.rosterrow select{border:1px solid var(--line);background:var(--panel);border-radius:9px;padding:8px;font-size:13.5px;width:100%}
+.rosterrow .del{border:1px solid var(--line);background:transparent;border-radius:9px;padding:8px;font-size:13px;color:var(--muted)}
+.rlabel{display:grid;grid-template-columns:1fr 78px 92px 1fr;gap:6px;font-size:11.5px;color:var(--muted);margin-bottom:5px}
+
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--ink);color:var(--paper);
+  padding:10px 18px;border-radius:999px;font-size:13.5px;z-index:60;opacity:0;pointer-events:none;transition:opacity .18s}
+.toast.show{opacity:1}
+.hidden{display:none}
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="mark">연</div>
+  <b id="barTitle">근무시간 입력</b>
+  <button id="outBtn" class="hidden">나가기</button>
+</header>
+
+<div class="wrap"><div class="msg ok" style="margin-top:14px"><b>공개 체험판</b><br>가상 정보로만 시험해 주세요. 입력 내용은 이 기기의 브라우저에만 저장됩니다.</div>
+  <div id="view"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+"use strict";
+
+const LS = "hagwon.who.v1";
+let db = null, downloads = null, roster = [], me = null, admin = false, unsubs = [];
+
+const $ = s => document.querySelector(s);
+const view = $("#view"), bar = $("#barTitle"), outBtn = $("#outBtn");
+const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const won = n => "₩" + Math.round(n || 0).toLocaleString("ko-KR");
+const hrs = n => (Math.round((n || 0) * 10) / 10).toLocaleString("ko-KR");
+let tid; const toast = m => { const t = $("#toast"); t.textContent = m; t.classList.add("show");
+  clearTimeout(tid); tid = setTimeout(() => t.classList.remove("show"), 1800); };
+const clearSubs = () => { unsubs.forEach(u => { try { u(); } catch(e){} }); unsubs = []; };
+
+/* ── 달 ── */
+const pad = n => String(n).padStart(2, "0");
+const now = new Date();
+let month = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
+const monthLabel = m => `${m.slice(0,4)}년 ${Number(m.slice(5,7))}월`;
+const daysIn = m => new Date(+m.slice(0,4), +m.slice(5,7), 0).getDate();
+const dowOf = (m, d) => new Date(+m.slice(0,4), +m.slice(5,7) - 1, d).getDay(); // 0=일
+const monthList = () => { const out = []; const b = new Date(now.getFullYear(), now.getMonth(), 1);
+  for (let i = 1; i >= -6; i--){ const x = new Date(b.getFullYear(), b.getMonth() + i, 1);
+    out.push(`${x.getFullYear()}-${pad(x.getMonth() + 1)}`); } return out; };
+
+/* ── 주휴수당: 월~일 주 단위, 주 15시간 이상이면 (주시간/40)×8×시급, 8시간 상한 ── */
+function weeksOf(m){
+  const n = daysIn(m), out = []; let cur = [];
+  for (let d = 1; d <= n; d++){
+    cur.push(d);
+    if (dowOf(m, d) === 0 || d === n){ out.push(cur); cur = []; }
+  }
+  return out;
+}
+function holidayPay(m, days, rate){
+  const detail = [];
+  let total = 0;
+  weeksOf(m).forEach((wk, i) => {
+    const h = wk.reduce((s, d) => s + (Number(days[d]) || 0), 0);
+    let pay = 0, paidHours = 0;
+    if (h >= 15){ paidHours = Math.min(h / 40 * 8, 8); pay = paidHours * rate; total += pay; }
+    detail.push({ no: i + 1, from: wk[0], to: wk[wk.length - 1], hours: h, paidHours, pay });
+  });
+  return { total, detail };
+}
+const sumDays = days => Object.values(days || {}).reduce((s, v) => s + (Number(v) || 0), 0);
+
+/* ── 계산 ── */
+function payOf(t, days){
+  const h = sumDays(days);
+  if (t.type === "fixed"){
+    const gross = Number(t.rate) || 0;
+    return { hours: 0, base: gross, holiday: 0, gross, detail: [] };
+  }
+  const rate = Number(t.rate) || 0;
+  const base = h * rate;
+  const hp = t.holiday ? holidayPay(month, days, rate) : { total: 0, detail: [] };
+  return { hours: h, base, holiday: hp.total, gross: base + hp.total, detail: hp.detail };
+}
+function tax(gross){
+  const inc = Math.floor(gross * 0.03 / 10) * 10;
+  const loc = Math.floor(gross * 0.003 / 10) * 10;
+  return { inc, loc, cut: inc + loc, net: gross - inc - loc };
+}
+
+/* ── db helpers ── */
+const hourId = (m, id) => `${m}__${id}`;
+async function saveHours(tid_, days){
+  await db.doc(`hours/${hourId(month, tid_)}`).set({
+    teacherId: tid_, month, days, updatedAt: new Date().toISOString()
+  });
+}
+function dbErrText(e){
+  const c = e && e.code;
+  if (c === "permission_denied" || c === "not_granted")
+    return "저장 권한이 없습니다. 원장님께 '편집 가능' 권한으로 링크를 다시 받아야 합니다.";
+  if (c === "unavailable" || c === "deadline_exceeded")
+    return "연결이 불안정합니다. 잠시 뒤 다시 저장해 주세요.";
+  return "저장하지 못했습니다. 다시 눌러 주세요.";
+}
+
+/* ══ 화면 1: 로그인 ══ */
+function renderLogin(msg){
+  clearSubs(); admin = false; me = null; outBtn.classList.add("hidden");
+  bar.textContent = "근무시간 입력";
+  const opts = roster.filter(t => t.type === "hourly")
+    .map(t => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join("");
+  view.innerHTML = `
+    <h1 class="big">이번 달 근무시간을<br>입력해 주세요.</h1>
+    <p class="lead">매달 말일까지 입력하시면 됩니다. 수업 끝나고 그날 바로 적으시면 가장 정확합니다.</p>
+    ${msg ? `<div class="msg err">${esc(msg)}</div>` : ""}
+    <div class="field"><label for="who">이름</label>
+      <select id="who">${opts || `<option value="">명단이 아직 없습니다</option>`}</select></div>
+    <div class="field"><label for="p4">전화번호 뒤 4자리</label>
+      <input id="p4" type="tel" inputmode="numeric" maxlength="4" placeholder="0000" autocomplete="off"></div>
+    <button class="btn" id="go">입장하기</button>
+    <button class="ghost" id="adminBtn">원장님이신가요?</button>`;
+  $("#go").onclick = () => {
+    const id = $("#who").value, p4 = $("#p4").value.trim();
+    const t = roster.find(x => x.id === id);
+    if (!t) return renderLogin("이름을 골라 주세요.");
+    if (String(t.last4 || "") !== p4) return renderLogin("전화번호 뒤 4자리가 맞지 않습니다.");
+    me = t; try { localStorage.setItem(LS, t.id); } catch(e){}
+    renderTeacher();
+  };
+  $("#p4").onkeydown = e => { if (e.key === "Enter") $("#go").click(); };
+  $("#adminBtn").onclick = renderAdminGate;
+}
+
+/* ══ 화면 2: 강사 ══ */
+function renderTeacher(){
+  clearSubs();
+  bar.textContent = me.name + " 선생님";
+  outBtn.classList.remove("hidden");
+  const n = daysIn(month), lead = (dowOf(month, 1) + 6) % 7;
+  const names = ["월","화","수","목","금","토","일"];
+  let cells = "";
+  for (let i = 0; i < lead; i++) cells += `<div class="cell blank"></div>`;
+  for (let d = 1; d <= n; d++){
+    const sun = dowOf(month, d) === 0;
+    cells += `<div class="cell${sun ? " sun" : ""}" data-d="${d}">
+      <div class="d">${d}</div>
+      <input type="text" inputmode="decimal" data-day="${d}" aria-label="${d}일 근무시간"></div>`;
+    if (dowOf(month, d) === 0 && d !== n) cells += `<div class="weektag"></div>`;
+  }
+  view.innerHTML = `
+    <h1 class="big">${monthLabel(month)}</h1>
+    <p class="lead">일한 시간을 숫자로 적어주세요. 30분은 0.5, 1시간 30분은 1.5 입니다.</p>
+    <div class="grid">${names.map((x,i)=>`<div class="gh${i===6?" sun":""}">${x}</div>`).join("")}${cells}</div>
+    <div class="total"><span>이번 달 합계</span><b id="sum">0시간</b></div>
+    <div class="saving" id="saving"></div>
+    <p class="hint">적을 때마다 자동으로 저장됩니다. 말일 전까지는 언제든 고칠 수 있습니다.</p>`;
+
+  const inputs = [...view.querySelectorAll("input[data-day]")];
+  const sumEl = $("#sum"), savEl = $("#saving");
+  let days = {};
+
+  const paint = () => {
+    inputs.forEach(i => {
+      const v = days[i.dataset.day];
+      i.value = (v === 0 || v == null || v === "") ? "" : v;
+      i.closest(".cell").classList.toggle("has", !!Number(v));
+    });
+    sumEl.textContent = hrs(sumDays(days)) + "시간";
+  };
+
+  let t2 = null;
+  const queue = () => {
+    savEl.className = "saving"; savEl.textContent = "저장 중…";
+    clearTimeout(t2);
+    t2 = setTimeout(async () => {
+      try { await saveHours(me.id, days); savEl.className = "saving ok"; savEl.textContent = "저장되었습니다"; }
+      catch(e){ savEl.className = "saving err"; savEl.textContent = dbErrText(e); }
+    }, 700);
+  };
+
+  inputs.forEach(i => {
+    i.addEventListener("input", () => {
+      let v = i.value.replace(/[^0-9.]/g, "");
+      if (v.split(".").length > 2) v = v.slice(0, -1);
+      i.value = v;
+      const num = parseFloat(v);
+      if (!v) delete days[i.dataset.day];
+      else if (!isNaN(num) && num >= 0 && num <= 24) days[i.dataset.day] = num;
+      i.closest(".cell").classList.toggle("has", !!parseFloat(v));
+      sumEl.textContent = hrs(sumDays(days)) + "시간";
+      queue();
+    });
+  });
+
+  db.doc(`hours/${hourId(month, me.id)}`).get()
+    .then(s => { if (s.exists) days = Object.assign({}, (s.data() || {}).days || {}); paint(); })
+    .catch(() => paint());
+}
+
+/* ══ 화면 3: 원장 ══ */
+function renderAdminGate(msg){
+  clearSubs(); outBtn.classList.remove("hidden"); bar.textContent = "원장님";
+  view.innerHTML = `
+    <h1 class="big">원장님 화면</h1>
+    <p class="lead">강사 화면에는 금액과 주휴수당이 보이지 않습니다. 비밀번호를 처음 넣으면 그 번호로 등록됩니다.</p>
+    ${msg ? `<div class="msg err">${esc(msg)}</div>` : ""}
+    <div class="field"><label for="pin">비밀번호 4자리</label>
+      <input id="pin" type="password" inputmode="numeric" maxlength="4" placeholder="0000" autocomplete="off"></div>
+    <button class="btn" id="pgo">들어가기</button>
+    <button class="ghost" id="back">강사 입력 화면으로</button>`;
+  $("#back").onclick = () => renderLogin();
+  $("#pin").onkeydown = e => { if (e.key === "Enter") $("#pgo").click(); };
+  $("#pgo").onclick = async () => {
+    const v = $("#pin").value.trim();
+    let stored = null;
+    try { const s = await db.doc("config/admin").get(); stored = s.exists ? (s.data() || {}).pin : null; }
+    catch(e){ return renderAdminGate("설정을 읽지 못했습니다. 다시 시도해 주세요."); }
+    if (!stored){
+      if (!/^\d{4}$/.test(v)) return renderAdminGate("처음 들어오셨습니다. 쓰실 비밀번호 4자리를 정해 주세요.");
+      try { await db.doc("config/admin").set({ pin: v }); }
+      catch(e){ return renderAdminGate("비밀번호를 저장하지 못했습니다."); }
+      admin = true; return renderAdmin();
+    }
+    if (String(stored) !== v) return renderAdminGate("비밀번호가 맞지 않습니다.");
+    admin = true; renderAdmin();
+  };
+}
+
+function renderAdmin(){
+  clearSubs(); bar.textContent = "원장님"; outBtn.classList.remove("hidden");
+  view.innerHTML = `
+    <div class="field" style="margin-top:20px">
+      <label for="mSel">대상 월</label>
+      <select id="mSel">${monthList().map(m => `<option value="${m}"${m === month ? " selected" : ""}>${monthLabel(m)}</option>`).join("")}</select>
+    </div>
+    <div id="payArea"><p class="hint">불러오는 중…</p></div>
+    <h2>강사 명단</h2>
+    <div id="rosterArea"></div>`;
+  $("#mSel").onchange = e => { month = e.target.value; loadPay(); };
+  loadPay(); renderRoster();
+}
+
+function loadPay(){
+  clearSubs();
+  const area = $("#payArea");
+  const un = db.collection("hours").where("month", "==", month).onSnapshot(
+    snap => {
+      const map = {};
+      snap.docs.forEach(d => { const v = d.data() || {}; map[v.teacherId] = v.days || {}; });
+      paintPay(area, map);
+    },
+    () => { area.innerHTML = `<div class="msg err">기록을 불러오지 못했습니다.</div>`; }
+  );
+  unsubs.push(un);
+}
+
+function paintPay(area, map){
+  const rows = roster.map(t => {
+    const p = payOf(t, map[t.id] || {});
+    const x = tax(p.gross);
+    return { t, p, x };
+  });
+  const S = k => rows.reduce((s, r) => s + (k === "net" ? r.x.net : k === "cut" ? r.x.cut : r.p[k]), 0);
+
+  area.innerHTML = `
+    <div class="scroll"><table>
+      <thead><tr><th>강사</th><th>시간</th><th>기본</th><th>주휴</th><th>지급총액</th><th>3.3%</th><th>실지급</th></tr></thead>
+      <tbody>
+      ${rows.map(r => `<tr>
+        <td>${esc(r.t.name)} ${r.t.type === "fixed" ? `<span class="pill">고정</span>` : (r.t.holiday ? `<span class="pill h">주휴</span>` : "")}</td>
+        <td class="num">${r.t.type === "fixed" ? "-" : hrs(r.p.hours)}</td>
+        <td class="num">${won(r.p.base)}</td>
+        <td class="num">${r.p.holiday ? won(r.p.holiday) : "-"}</td>
+        <td class="num">${won(r.p.gross)}</td>
+        <td class="num">${won(r.x.cut)}</td>
+        <td class="num"><b>${won(r.x.net)}</b></td></tr>`).join("")}
+      <tr class="sum"><td>합계</td><td class="num">${hrs(S("hours"))}</td><td class="num">${won(S("base"))}</td>
+        <td class="num">${won(S("holiday"))}</td><td class="num">${won(S("gross"))}</td>
+        <td class="num">${won(S("cut"))}</td><td class="num">${won(S("net"))}</td></tr>
+      </tbody></table></div>
+    <div class="btnrow">
+      <button class="btn sm" id="dl">엑셀로 내려받기</button>
+      <button class="btn sm sec" id="wk">주휴수당 계산 내역</button>
+      <button class="btn sm sec" id="pinBtn">비밀번호 변경</button>
+    </div>
+    <div id="wkArea"></div>`;
+
+  $("#wk").onclick = () => {
+    const a = $("#wkArea");
+    if (a.innerHTML){ a.innerHTML = ""; return; }
+    const hs = rows.filter(r => r.t.holiday && r.t.type === "hourly");
+    a.innerHTML = hs.length ? hs.map(r => `
+      <div class="card"><h3>${esc(r.t.name)}</h3>
+      <p class="sub">주 15시간 이상인 주에만 붙습니다 · (주 근무시간 ÷ 40 × 8시간) × 시급, 8시간 상한</p>
+      <div class="scroll"><table><thead><tr><th>주</th><th>기간</th><th>근무</th><th>주휴시간</th><th>금액</th></tr></thead><tbody>
+      ${r.p.detail.map(d => `<tr><td>${d.no}주</td><td>${d.from}~${d.to}일</td><td class="num">${hrs(d.hours)}</td>
+        <td class="num">${d.paidHours ? hrs(d.paidHours) : "-"}</td><td class="num">${d.pay ? won(d.pay) : "-"}</td></tr>`).join("")}
+      </tbody></table></div></div>`).join("")
+      : `<div class="msg">주휴수당 대상으로 지정된 강사가 없습니다.</div>`;
+  };
+
+  $("#pinBtn").onclick = async () => {
+    const v = prompt("새 비밀번호 4자리");
+    if (!v) return;
+    if (!/^\d{4}$/.test(v.trim())) return toast("숫자 4자리로 넣어주세요");
+    try { await db.doc("config/admin").set({ pin: v.trim() }); toast("비밀번호를 바꿨습니다"); }
+    catch(e){ toast("바꾸지 못했습니다"); }
+  };
+
+  $("#dl").onclick = async () => {
+    if (!downloads) return toast("이 화면에서는 내려받기를 쓸 수 없습니다");
+    const head = ["강사명","구분","시급/월정액","근무시간","기본급","주휴수당","지급총액","소득세","지방소득세","실지급액"];
+    const body = rows.map(r => [r.t.name, r.t.type === "fixed" ? "고정급" : "시급",
+      r.t.rate, r.t.type === "fixed" ? "" : r.p.hours, r.p.base, r.p.holiday, r.p.gross,
+      r.x.inc, r.x.loc, r.x.net]);
+    body.push(["합계","","", S("hours"), S("base"), S("holiday"), S("gross"), "", "", S("net")]);
+    const q = v => `"${String(v).replace(/"/g, '""')}"`;
+    const csv = "\uFEFF" + [head, ...body].map(r => r.map(q).join(",")).join("\r\n");
+    try { await downloads.save({ filename: `강사료_${month}.csv`, data: csv }); }
+    catch(e){ if (e && e.code !== "declined") toast("내려받지 못했습니다"); }
+  };
+}
+
+function renderRoster(){
+  const area = $("#rosterArea");
+  const draw = () => {
+    area.innerHTML = `
+      <div class="rlabel"><span>이름</span><span>뒤 4자리</span><span>구분</span><span>시급/월정액</span></div>
+      <div id="rlist"></div>
+      <div class="btnrow">
+        <button class="btn sm sec" id="addT">강사 추가</button>
+        <button class="btn sm" id="saveT">명단 저장</button>
+      </div>
+      <p class="hint">주휴수당은 '시급+주휴'로 고른 강사에게만 붙습니다. 이름을 바꾸면 그 강사가 입력한 기록과 연결이 끊기지 않습니다.</p>`;
+    const list = $("#rlist");
+    const row = t => {
+      const el = document.createElement("div");
+      el.className = "rosterrow";
+      el.innerHTML = `
+        <input class="n" value="${esc(t.name)}" placeholder="이름">
+        <input class="l" value="${esc(t.last4)}" maxlength="4" inputmode="numeric" placeholder="0000">
+        <select class="t">
+          <option value="fixed">고정급</option>
+          <option value="hourly">시급</option>
+          <option value="hourlyH">시급+주휴</option>
+        </select>
+        <input class="r" value="${esc(t.rate)}" inputmode="numeric" placeholder="금액">`;
+      el.querySelector(".t").value = t.type === "fixed" ? "fixed" : (t.holiday ? "hourlyH" : "hourly");
+      el.dataset.id = t.id;
+      list.appendChild(el);
+    };
+    roster.forEach(row);
+    $("#addT").onclick = () => { roster.push({ id: "t" + Date.now().toString(36), name: "", last4: "", type: "hourly", holiday: false, rate: 15000, order: roster.length }); draw(); };
+    $("#saveT").onclick = async () => {
+      const next = [...list.children].map((el, i) => {
+        const kind = el.querySelector(".t").value;
+        return { id: el.dataset.id, name: el.querySelector(".n").value.trim(),
+          last4: el.querySelector(".l").value.trim(), type: kind === "fixed" ? "fixed" : "hourly",
+          holiday: kind === "hourlyH", rate: Number(el.querySelector(".r").value.replace(/[^0-9]/g, "")) || 0, order: i };
+      }).filter(t => t.name);
+      try {
+        for (const t of next) await db.doc(`roster/${t.id}`).set(t);
+        roster = next; toast("명단을 저장했습니다"); loadPay(); draw();
+      } catch(e){ toast("저장하지 못했습니다"); }
+    };
+  };
+  draw();
+}
+
+/* ── 나가기 ── */
+outBtn.onclick = () => { try { localStorage.removeItem(LS); } catch(e){} renderLogin(); };
+
+/* ── 시작 ── */
+/* ══════════════════════════════════════════════════════════════
+   PoC 저장소 — 브라우저 localStorage
+   claude.ai 배포판은 공유 DB를 써서 강사 여러 명이 같은 링크에
+   입력하지만, 이 공개 PoC는 서버 없이 도는 데모라 기록이
+   이 브라우저 안에만 남습니다. 기능과 계산식은 동일합니다.
+   ══════════════════════════════════════════════════════════════ */
+const STORE = "hagwon.poc.store.v1";
+const readAll = () => { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch(e){ return {}; } };
+const writeAll = o => { try { localStorage.setItem(STORE, JSON.stringify(o)); } catch(e){} };
+
+const LocalDB = {
+  doc(path){
+    return {
+      async get(){ const v = readAll()[path];
+        return { id: path.split("/").pop(), exists: v !== undefined, data: () => v }; },
+      async set(data){ const all = readAll(); all[path] = data; writeAll(all); }
+    };
+  },
+  collection(name){
+    const pull = () => Object.entries(readAll())
+      .filter(([k]) => k.startsWith(name + "/"))
+      .map(([k, v]) => ({ id: k.split("/").pop(), exists: true, data: () => v }));
+    const make = (filter, sortKey) => ({
+      where(f, op, val){ return make(d => (d.data() || {})[f] === val, sortKey); },
+      orderBy(f){ return make(filter, f); },
+      async get(){ let d = pull(); if (filter) d = d.filter(filter);
+        if (sortKey) d.sort((a, b) => ((a.data()||{})[sortKey] ?? 0) - ((b.data()||{})[sortKey] ?? 0));
+        return { docs: d, size: d.length, empty: !d.length }; },
+      onSnapshot(cb){
+        let stop = false;
+        const tick = async () => { if (stop) return; cb(await this.get()); };
+        tick();
+        const iv = setInterval(tick, 1200);
+        return () => { stop = true; clearInterval(iv); };
+      }
+    });
+    return make(null, null);
+  }
+};
+
+/* 처음 열었을 때 쓸 명단 — PoC 데모용 */
+const SEED = [
+  { id:"demo1", name:"체험 강사 A", last4:"0000", type:"fixed", holiday:false, rate:1000000, order:0 },
+  { id:"demo2", name:"체험 강사 B", last4:"0000", type:"hourly", holiday:true, rate:10000, order:1 },
+  { id:"demo3", name:"체험 강사 C", last4:"0000", type:"hourly", holiday:false, rate:10000, order:2 }
+];
+
+view.innerHTML = `<p class="hint" style="margin-top:30px">불러오는 중…</p>`;
+Promise.resolve(LocalDB).then(async d => {
+  db = d;
+  downloads = {
+    async save({ filename, data }){
+      const url = URL.createObjectURL(new Blob([data], { type: "text/csv;charset=utf-8" }));
+      const a = document.createElement("a");
+      a.href = url; a.download = filename; document.body.appendChild(a); a.click();
+      a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+      return { status: "saved" };
+    }
+  };
+  if (!(await db.collection("roster").get()).size)
+    for (const t of SEED) await db.doc(`roster/${t.id}`).set(t);
+  try {
+    const snap = await db.collection("roster").orderBy("order").get();
+    roster = snap.docs.map(s => Object.assign({ id: s.id }, s.data()));
+  } catch(e){ roster = []; }
+  const saved = (() => { try { return localStorage.getItem(LS); } catch(e){ return null; } })();
+  const t = roster.find(x => x.id === saved);
+  if (t && t.type === "hourly"){ me = t; renderTeacher(); }
+  else renderLogin();
+}).catch(() => {
+  view.innerHTML = `<div class="msg err">화면을 여는 데 문제가 있습니다. 새로고침해 주세요.</div>`;
+});
+
+})();
+</script>
+</body>
+</html>
