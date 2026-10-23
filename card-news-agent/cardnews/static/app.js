@@ -11,6 +11,7 @@ const STATUS_LABEL = {
   editorial_ready: "편집 방향 정리됨",
   storyboard_ready: "스토리보드 승인 기다리는 중",
   images_ready: "그림 완료",
+  cards_ready: "카드 완성",
   failed: "실패",
   interrupted: "중단됨",
   cancelled: "취소됨",
@@ -143,6 +144,7 @@ function renderProject(p) {
     ${questionSection(p)}
     ${editorialSection(p)}
     ${storyboardSection(p)}
+    ${cardsSection(p)}
     <details id="log" ${logOpen ? "open" : ""}><summary>작업 진행 내역 (${(p.events || []).length})</summary>
       <div class="log">${(p.events || []).slice().reverse().map((e) => `<div>${esc(e.at)} — ${esc(e.message)}</div>`).join("")}</div>
     </details>
@@ -332,6 +334,78 @@ function sbCard(p, c, approved) {
   </div>`;
 }
 
+function cardText(c) {
+  const t = c.text || {};
+  return { title: t.title ?? c.title, keyLine: t.keyLine ?? c.keyLine, body: t.body ?? c.body };
+}
+
+function isStale(c) {
+  const r = c.render || {}, img = c.image || {};
+  if (r.status !== "done") return true;
+  return r.imageFile !== img.file || JSON.stringify(r.text) !== JSON.stringify(cardText(c)) ||
+    JSON.stringify(r.layout ?? null) !== JSON.stringify(c.layout ?? null);
+}
+
+function issuesOf(ch) {
+  const out = [];
+  if (!ch) return out;
+  if (ch.overflow) out.push(`글자가 그림 여백을 넘침 (${ch.textBottom}px > ${ch.limit}px)`);
+  if (ch.wideWord) out.push("한 줄에 안 들어가는 긴 단어");
+  if (ch.lowContrast) out.push(`글자가 그림과 겹치거나 대비가 낮음 (대비 ${ch.contrast}:1, 겹친 부분 ${ch.overlapPct}%)`);
+  if (ch.smallOnPhone) out.push(`휴대폰에서 본문이 작음 (${ch.phoneBodyPx}px)`);
+  return out;
+}
+
+function cardsSection(p) {
+  const sb = p.storyboard;
+  if (!sb || !sb.approved) return "";
+  const cards = sb.cards;
+  const ready = cards.filter((c) => (c.image || {}).status === "done");
+  if (!ready.length) return "";
+  const stale = ready.filter(isStale).length;
+  const busy = ACTIVE.has(p.status);
+  const rendered = cards.filter((c) => (c.render || {}).status === "done");
+  const AUTO = { 1: "기본 크기", 2: "제목을 줄임", 3: "글자 뒤에 상자" };
+  return `<h2>6. 카드 (글자 넣기 · 휴대폰 미리보기)</h2>
+    <div class="box">
+      그림 위에 제목·핵심 문장·본문을 따로 올려 1080×1350 PNG로 만듭니다. 글자를 고쳐도 그림은 다시 만들지 않습니다.
+      <div class="row"><button id="render" ${busy || !stale ? "disabled" : ""}>${rendered.length ? `바뀐 카드 ${stale}장 다시 그리기` : `카드 ${stale}장 만들기`}</button>
+        ${!stale && rendered.length ? `<span class="muted">모든 카드가 최신입니다.</span>` : ""}</div>
+    </div>
+    ${rendered.length ? `<div class="muted">휴대폰 너비(375px) 미리보기 — 옆으로 넘겨 보세요.</div>
+      <div class="phone-strip">${rendered.map((c) => `<img src="/api/projects/${esc(p.id)}/cards/${esc(c.render.file)}" alt="카드 ${esc(c.no)}">`).join("")}</div>` : ""}
+    <div class="sb-cards">${cards.map((c) => {
+      const r = c.render || {};
+      const t = cardText(c);
+      const lay = c.layout || r.usedLayout || { titleSize: 68, keySize: 40, bodySize: 36, color: "dark", box: false };
+      const iss = issuesOf(r.checks);
+      return `<div class="sb-card">
+        <div><b>#${esc(c.no)} ${esc(t.title)}</b>
+          ${r.status === "done" ? (iss.length ? iss.map((x) => `<div class="note">⚠ ${esc(x)}</div>`).join("") :
+            `<span class="badge">검사 통과</span>`) : r.status === "failed" ? `<div class="err">${esc(r.error)}</div>` : `<span class="muted">아직 안 만듦</span>`}
+          ${r.checks && r.checks.autoFit ? `<span class="muted"> · 자동 맞춤: ${AUTO[r.checks.autoFit]}</span>` : ""}
+          ${r.status === "done" && isStale(c) ? `<span class="note"> · 그림이나 글자가 바뀌어 다시 그려야 함</span>` : ""}
+          ${r.status === "done" ? ` · <a href="/api/projects/${esc(p.id)}/cards/${esc(r.file)}" target="_blank">${esc(r.file)}</a>` : ""}
+        </div>
+        ${(c.image || {}).status === "done" ? `<details><summary>글자 고치기 (그림은 그대로)</summary>
+          <form class="txt" data-no="${esc(c.no)}">
+            <label class="field">제목</label><input type="text" name="title" maxlength="80" value="${esc(t.title)}">
+            <label class="field">핵심 문장</label><input type="text" name="keyLine" maxlength="200" value="${esc(t.keyLine)}">
+            <label class="field">본문</label><textarea name="body" maxlength="600">${esc(t.body)}</textarea>
+            <div class="row">
+              <label>제목 <input type="number" name="titleSize" min="40" max="100" value="${esc(lay.titleSize)}" style="width:70px"></label>
+              <label>핵심 <input type="number" name="keySize" min="26" max="64" value="${esc(lay.keySize)}" style="width:70px"></label>
+              <label>본문 <input type="number" name="bodySize" min="26" max="52" value="${esc(lay.bodySize)}" style="width:70px"></label>
+              <label>글자색 <select name="color"><option value="dark" ${lay.color === "dark" ? "selected" : ""}>어두운 글자</option><option value="light" ${lay.color === "light" ? "selected" : ""}>흰 글자</option></select></label>
+              <label><input type="checkbox" name="box" ${lay.box ? "checked" : ""}> 글자 뒤 상자</label>
+            </div>
+            <div class="row"><button type="submit" ${busy ? "disabled" : ""}>글자만 저장하고 다시 그리기</button>
+              <label class="muted"><input type="checkbox" name="auto" ${c.layout ? "" : "checked"}> 크기는 자동 맞춤</label></div>
+          </form></details>` : ""}
+      </div>`;
+    }).join("")}</div>`;
+}
+
 function bindProject(p) {
   const pid = p.id;
   const reload = () => { lastJson = ""; clearTimeout(pollTimer); showProject(pid); };
@@ -382,6 +456,17 @@ function bindProject(p) {
   if (sbApprove) sbApprove.onclick = () =>
     post(sbApprove, "approve", { stage: "storyboard", version: Number(sbApprove.dataset.version) }, "sb-err");
   document.querySelectorAll(".regen").forEach((b) => { b.onclick = () => post(b, `cards/${b.dataset.no}/image`, {}); });
+  const renderBtn = document.getElementById("render");
+  if (renderBtn) renderBtn.onclick = () => post(renderBtn, "render", {});
+  document.querySelectorAll("form.txt").forEach((f) => f.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const v = (n) => f.elements[n].value;
+    const body = { title: v("title"), keyLine: v("keyLine"), body: v("body") };
+    body.layout = f.elements.auto.checked ? null : {
+      titleSize: Number(v("titleSize")), keySize: Number(v("keySize")), bodySize: Number(v("bodySize")),
+      color: v("color"), box: f.elements.box.checked };
+    post(f.querySelector("button"), `cards/${f.dataset.no}/text`, body);
+  }));
 
   const version = p.research && p.research.candidatesVersion;
   const saveSelection = async (confirm) => {

@@ -1,7 +1,7 @@
 # API_SPEC — 화면과 서버의 약속
 
 PRD.md의 "웹 API 계약 초안"을 Python 구현(`cardnews/server.py`)에 맞춰 확정한 문서다.
-지금 구현된 범위는 **주제 입력 → 조사 → 후보 선택 → 질문·답변 → 편집 방향(심층 검증 포함) → 스토리보드 승인 → 카드별 그림**까지다(STEP 7). 글자 배치·수정·내려받기(`/revisions`, `/exports`, 최종 승인)는 아직 없다.
+지금 구현된 범위는 **주제 입력 → 조사 → 후보 선택 → 질문·답변 → 편집 방향(심층 검증 포함) → 스토리보드 승인 → 카드별 그림 → 글자를 올린 카드 PNG·글자만 고치기**까지다(STEP 8). 요청문으로 카드 고치기·최종 승인·내려받기(`/revisions`, `/exports`)는 아직 없다.
 스토리보드 승인·수정·내보내기(`/approve`, `/revisions`, `/exports`)는 아직 없다.
 
 ## 기본
@@ -183,6 +183,25 @@ created → researching → candidates_ready → running → waiting_for_user �
 - `image.status`: `pending`(차례 기다림) / `generating` / `done` / `failed`(`error`에 이유). 파일이 실제 이미지인지 검사한 뒤에만 `done`.
 - 프로젝트 `storyboardFeedback`: 반영한 변경 요청 목록.
 - 새 상태: `storyboard_ready`(승인 기다림), `images_ready`(그림 작업 끝, 실패한 카드가 있을 수 있음).
+
+### `POST /api/projects/{id}/render` (STEP 8)
+`{ requestId }`. 그림이 있고, 아직 안 그렸거나 그림·글자·글자 모양이 바뀐 카드만 PNG로 다시 그린다. 그릴 게 없으면 `{ nothingToDo: true }`. 끝나면 `status: "cards_ready"`.
+
+### `POST /api/projects/{id}/cards/{no}/text`
+`{ requestId, title?, keyLine?, body?, layout? }`. **글자만** 고치고 그 카드만 다시 그린다(그림은 그대로).
+- `layout`: `{ titleSize 40~100, keySize 26~64, bodySize 26~52, color: "dark"|"light", box: bool }`. `null`이면 자동 맞춤으로 되돌림. 범위를 벗어나면 400.
+- 글자 길이 제한: 제목 80자, 핵심 문장 200자, 본문 600자.
+
+### `GET /api/projects/{id}/cards/{file}`
+완성 카드 PNG(`card-NN-rK.png`).
+
+### 카드 데이터 (각 카드)
+- `text`: 사용자가 고친 글자(없으면 스토리보드 원고 사용), `layout`: 사용자가 정한 글자 모양(없으면 자동 맞춤)
+- `render`: `{ status, version, file, format, width, height, imageFile(쓴 그림), text, layout, usedLayout(실제 쓴 모양), checks, at }`
+- `checks`: `{ limit, textBottom, overflow, wideWord, phoneBodyPx, smallOnPhone, contrast, overlapPct, lowContrast, autoFit(1 기본·2 제목 줄임·3 상자) }`
+
+### 카드 렌더러 (`cardnews/render.py`)
+카드 HTML(그림은 data URI) → Chrome `--headless=new --dump-dom`으로 검사 결과를 읽고 → `--screenshot`으로 1080×1350 PNG. 별도 프로필 폴더(`data\engine-work\<프로젝트>\render\chrome-profile`)를 써서 사용자가 쓰는 Chrome과 섞이지 않음. 그림은 `object-fit: cover`로 4:5에 맞춤. 오른쪽 아래에 그림 출처 표시("AI 생성 그림 (Antigravity)" / "AI 도형 그림 (Claude CLI)").
 
 ### `POST /api/projects/{id}/retry`
 `{ "requestId" }`. `failed / interrupted / cancelled`일 때 실패한 작업(`error.retryKind`)을 다시 시작한다. 이미 받은 후보·선택·답변은 그대로 둔다. 그림 작업이면 `done`이 아닌 카드만 다시 만든다.

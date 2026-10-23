@@ -9,6 +9,7 @@ from pathlib import Path
 
 from .engines import ENGINES, make_engine
 from .images import ImageMaker
+from .render import Renderer
 from .jobs import Runner
 from .server import App, serve
 from .store import Store
@@ -63,7 +64,8 @@ def main(argv=None):
     status = check_claude_login(engine.exe) if args.engine == "claude-cli" else None
     interrupted = store.mark_interrupted()
     images = ImageMaker(store, engine, use_agy=args.engine != "mock" and not args.no_agy)
-    runner = Runner(store, engine, images)
+    renderer = Renderer(store)
+    runner = Runner(store, engine, images, renderer)
     app = App(store, runner, engine.name, status)
 
     try:
@@ -86,6 +88,7 @@ def main(argv=None):
             print(f" 그림: agy {'(' + images.agy + ')' if images.agy else '없음'} → 안 되면 claude cli 도형 그림")
         else:
             print(" 그림: claude cli 도형 그림 (--no-agy)")
+    print(" 카드 렌더러: " + (renderer.chrome or "⚠ Chrome/Edge를 찾지 못함 — 카드 PNG를 만들 수 없습니다"))
     print(f" 결과 보관 폴더: {store.data_dir}")
     if fail:
         print(f" 시험용 모의 실패: {', '.join(sorted(fail))}")

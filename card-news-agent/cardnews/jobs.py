@@ -12,10 +12,11 @@ RESULT_TYPES = {"need_input", "result", "error"}
 
 
 class Runner:
-    def __init__(self, store, engine, images=None):
+    def __init__(self, store, engine, images=None, renderer=None):
         self.store = store
         self.engine = engine
         self.images = images  # 그림 작업자 (ImageMaker)
+        self.renderer = renderer  # 카드 렌더러 (글자 + 그림 → PNG)
         self._cancels = {}
 
     # --- 문서 수정 (store.update 안에서 호출) ---
@@ -61,9 +62,10 @@ class Runner:
 
         try:
             doc = self.store.get(project_id)
-            if kind == "images":
+            if kind in ("images", "render"):
                 cards = find_run(doc, run_id).get("cards") or []
-                out = self.images.run(project_id, run_id, cards, emit, cancel)
+                worker = self.images if kind == "images" else self.renderer
+                out = worker.run(project_id, run_id, cards, emit, cancel)
             else:
                 out = getattr(self.engine, kind)(_context(doc), emit, cancel)
         except Cancelled:
@@ -129,6 +131,8 @@ def _invalid(out, kind):
         return None
     if kind == "images":
         return None if isinstance(out.get("images"), dict) else "그림 작업 결과가 없습니다."
+    if kind == "render":
+        return None if isinstance(out.get("render"), dict) else "카드 만들기 결과가 없습니다."
     if not isinstance(out.get("editorial"), dict):
         return "편집 결과에 editorial이 없습니다."
     return None
@@ -198,6 +202,10 @@ def _apply(doc, run_id, kind, out, new_session):
         summary = out["images"]
         doc["status"] = "images_ready"
         add_event(doc, f"그림 작업 끝: 완료 {summary['made']}장, 실패 {summary['failed']}장")
+    elif kind == "render":
+        summary = out["render"]
+        doc["status"] = "cards_ready"
+        add_event(doc, f"카드 만들기 끝: 완성 {summary['made']}장 (검사 경고 {summary['warned']}장), 실패 {summary['failed']}장")
     else:
         doc["editorial"] = out["editorial"]
         doc["status"] = "editorial_ready"

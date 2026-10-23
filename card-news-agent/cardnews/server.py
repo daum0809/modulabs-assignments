@@ -6,7 +6,27 @@ import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from .render import card_text as card_text_of
+from .render import render_stale
 from .store import ACTIVE_STATUSES, NotFound, add_event, find_run, new_id, now_iso
+
+
+def clean_layout(lay):
+    """글자 모양 입력 검사. 범위를 벗어나면 400."""
+    if not isinstance(lay, dict):
+        raise ApiError(400, "bad_request", "layout은 객체여야 합니다.")
+    ranges = {"titleSize": (40, 100), "keySize": (26, 64), "bodySize": (26, 52)}
+    out = {}
+    for k, (lo, hi) in ranges.items():
+        v = lay.get(k)
+        if not isinstance(v, (int, float)) or not lo <= v <= hi:
+            raise ApiError(400, "bad_request", f"{k}는 {lo}~{hi} 사이 숫자여야 합니다.")
+        out[k] = int(v)
+    if lay.get("color") not in ("dark", "light"):
+        raise ApiError(400, "bad_request", "color는 dark 또는 light입니다.")
+    out["color"] = lay["color"]
+    out["box"] = bool(lay.get("box"))
+    return out
 
 STATIC_DIR = Path(__file__).parent / "static"
 STATIC_FILES = {
@@ -323,6 +343,78 @@ class App:
 
         return self._update(project_id, fn)
 
+    def render(self, project_id, body):
+        """카드 만들기: 그림 위에 글자를 올려 PNG로. 그림·글자가 바뀌었거나 아직 없는 카드만."""
+        rid = body.get("requestId")
+
+        def fn(doc):
+            replay = check_request(doc, rid, "render", {})
+            if replay is not None:
+                return replay, None
+            sb = doc.get("storyboard") or {}
+            if not sb.get("approved") or doc["status"] in ACTIVE_STATUSES:
+                raise ApiError(409, "invalid_state", "그림이 만들어진 뒤, 다른 작업이 없을 때 카드를 만들 수 있습니다.")
+            todo = [c["no"] for c in sb["cards"] if (c.get("image") or {}).get("status") == "done" and render_stale(c)]
+            if not todo:
+                resp = {"runId": None, "status": doc["status"], "nothingToDo": True}
+                remember(doc, rid, "render", {}, resp)
+                return resp, None
+            run = self.runner.prepare(doc, "render", "running", cards=todo)
+            resp = {"runId": run["id"], "status": doc["status"], "cards": todo}
+            remember(doc, rid, "render", {}, resp)
+            return resp, run
+
+        return self._update(project_id, fn)
+
+    def card_text(self, project_id, no, body):
+        """카드 글자만 고친다. 그림은 다시 만들지 않고 그 카드만 다시 그린다."""
+        rid = body.get("requestId")
+        no = int(no)
+        fields = {k: body.get(k) for k in ("title", "keyLine", "body")}
+        layout = body.get("layout")
+        payload = {"no": no, **fields, "layout": layout}
+        limits = {"title": 80, "keyLine": 200, "body": 600}
+        for k, v in fields.items():
+            if v is not None and (not isinstance(v, str) or len(v) > limits[k]):
+                raise ApiError(400, "bad_request", f"{k}는 {limits[k]}자 이하의 글이어야 합니다.")
+        if layout is not None:
+            layout = clean_layout(layout)
+
+        def fn(doc):
+            replay = check_request(doc, rid, "card_text", payload)
+            if replay is not None:
+                return replay, None
+            sb = doc.get("storyboard") or {}
+            if not sb.get("approved") or doc["status"] in ACTIVE_STATUSES:
+                raise ApiError(409, "invalid_state", "그림이 만들어진 뒤, 다른 작업이 없을 때 고칠 수 있습니다.")
+            card = next((c for c in sb["cards"] if c["no"] == no), None)
+            if card is None:
+                raise ApiError(404, "not_found", "없는 카드입니다.")
+            if (card.get("image") or {}).get("status") != "done":
+                raise ApiError(409, "invalid_state", "이 카드는 그림이 아직 없습니다.")
+            text = dict(card_text_of(card))
+            text.update({k: v.strip() for k, v in fields.items() if v is not None})
+            card["text"] = text
+            if "layout" in body:
+                if layout is None:
+                    card.pop("layout", None)  # 자동 맞춤으로 되돌리기
+                else:
+                    card["layout"] = layout
+            add_event(doc, f"카드 {no} 글자 수정 (그림은 그대로)")
+            run = self.runner.prepare(doc, "render", "running", cards=[no])
+            resp = {"runId": run["id"], "status": doc["status"]}
+            remember(doc, rid, "card_text", payload, resp)
+            return resp, run
+
+        return self._update(project_id, fn)
+
+    def card_file(self, project_id, name):
+        self._get(project_id)
+        path = self.store.data_dir / "projects" / project_id / "cards" / name
+        if not path.is_file():
+            raise ApiError(404, "not_found", "카드 파일이 없습니다.")
+        return FileResponse(path, "image/png")
+
     def image_file(self, project_id, name):
         self._get(project_id)
         path = self.store.data_dir / "projects" / project_id / "images" / name
@@ -347,6 +439,9 @@ class App:
             cards = None
             if kind == "images":  # 그림을 못 만든 카드만 다시
                 cards = [c["no"] for c in doc["storyboard"]["cards"] if (c.get("image") or {}).get("status") != "done"]
+            elif kind == "render":  # 아직 못 그린 카드만 다시
+                cards = [c["no"] for c in doc["storyboard"]["cards"]
+                         if (c.get("image") or {}).get("status") == "done" and render_stale(c)]
             run = self.runner.prepare(doc, kind, "researching" if kind == "research" else "running", cards=cards)
             resp = {"runId": run["id"], "status": doc["status"]}
             remember(doc, rid, "retry", {}, resp)
@@ -421,6 +516,9 @@ ROUTES = [
     ("POST", r"/api/projects/(?P<pid>prj_\w+)/storyboard", "storyboard"),
     ("POST", r"/api/projects/(?P<pid>prj_\w+)/approve", "approve"),
     ("POST", r"/api/projects/(?P<pid>prj_\w+)/cards/(?P<no>\d{1,2})/image", "card_image"),
+    ("POST", r"/api/projects/(?P<pid>prj_\w+)/render", "render"),
+    ("POST", r"/api/projects/(?P<pid>prj_\w+)/cards/(?P<no>\d{1,2})/text", "card_text"),
+    ("GET", r"/api/projects/(?P<pid>prj_\w+)/cards/(?P<name>card-\d{2}-r\d+\.png)", "card_file"),
     ("GET", r"/api/projects/(?P<pid>prj_\w+)/images/(?P<name>card-\d{2}-v\d+\.(?:svg|png|jpg|jpeg|webp))", "image_file"),
     ("POST", r"/api/runs/(?P<rid>run_\w+)/cancel", "cancel_run"),
 ]

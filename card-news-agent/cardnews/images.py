@@ -79,6 +79,12 @@ class ImageMaker:
             self._set_card(project_id, run_id, no, dict(prev, status="generating", startedAt=now_iso(), error=None))
             emit(f"카드 {no} 그림 만들기 시작")
             rec = self._make_one(doc, card, style, prev, agy_state, emit, cancel)
+            had_image = prev.get("file") and prev.get("format")  # 다시 만들기를 누르면 상태는 pending이지만 이전 파일 기록은 남아 있다
+            if rec["status"] != "done" and had_image:
+                prev = dict(prev, status="done")
+                # 다시 만들기가 실패하면 이전 그림을 그대로 두고 실패 이유만 남긴다
+                emit(f"카드 {no}: 새 그림을 만들지 못해 이전 그림({prev.get('file')})을 그대로 둡니다.")
+                rec = dict(prev, lastAttempt={"at": now_iso(), "error": rec.get("error"), "attempts": rec.get("attempts")})
             self._set_card(project_id, run_id, no, rec)
             if rec["status"] == "done":
                 made += 1
@@ -132,27 +138,34 @@ class ImageMaker:
         reason = attempts[-1]["error"] if attempts else agy_state["reason"]
 
         ctx = {"projectId": doc["id"], "sessionId": None}
-        res = self.engine.draw_svg(ctx, card, style, emit, cancel)
-        if res["type"] != "ok":
-            attempts.append({"tool": self.fallback_tool, "error": res.get("message")})
-            return dict(rec, status="failed", tool=self.fallback_tool, error=res.get("message") or "그림을 만들지 못했습니다.",
-                        fallbackReason=reason)
-        try:
-            svg = sanitize_svg(res["svg"])
-            path = out_dir / f"{base}.svg"
-            path.write_text(svg, encoding="utf-8")
-            info = verify_image(path)
-        except ValueError as exc:
-            attempts.append({"tool": self.fallback_tool, "error": f"SVG 검사 실패: {exc}"})
-            return dict(rec, status="failed", tool=self.fallback_tool, error=f"도형 그림 검사 실패: {exc}",
-                        fallbackReason=reason)
+        cost = 0
+        for attempt in (1, 2):  # 모델이 깨진 SVG를 주는 일이 있어 한 번 더 그려 달라고 한다
+            res = self.engine.draw_svg(ctx, card, style, emit, cancel)
+            cost += res.get("cost") or 0
+            if res["type"] != "ok":
+                attempts.append({"tool": self.fallback_tool, "error": res.get("message")})
+                return dict(rec, status="failed", tool=self.fallback_tool, error=res.get("message") or "그림을 만들지 못했습니다.",
+                            fallbackReason=reason, costUsd=cost)
+            try:
+                svg = sanitize_svg(res["svg"])
+                path = out_dir / f"{base}.svg"
+                path.write_text(svg, encoding="utf-8")
+                info = verify_image(path)
+                break
+            except ValueError as exc:
+                attempts.append({"tool": self.fallback_tool, "error": f"SVG 검사 실패: {exc}"})
+                if attempt == 2:
+                    return dict(rec, status="failed", tool=self.fallback_tool, error=f"도형 그림 검사 실패: {exc}",
+                                fallbackReason=reason, costUsd=cost)
+                emit(f"카드 {card['no']}: 도형 그림 코드가 깨져 한 번 더 그립니다.")
         return dict(rec, status="done", tool=self.fallback_tool, toolLabel=TOOL_LABELS[self.fallback_tool],
-                    file=path.name, fallbackReason=reason, costUsd=res.get("cost"), **info)
+                    file=path.name, fallbackReason=reason, costUsd=cost, **info)
 
     def _agy_generate(self, project_id, prompt, out_dir, base, cancel):
         work = self.store.data_dir / "engine-work" / project_id / "agy"
         work.mkdir(parents=True, exist_ok=True)
-        request = (f"내장 generate_image 도구로 다음 카드뉴스용 일러스트를 만들어 줘. {prompt} "
+        request = (f"내장 generate_image 도구만 사용해서 다음 카드뉴스용 일러스트를 한 장 만들어 줘. "
+                   f"명령 실행·파일 편집 같은 다른 도구는 쓰지 마. {prompt} "
                    f"현재 작업 폴더의 {base}.png로 저장하고 실제 저장 경로를 알려 줘.")
         started = time.time()
         before = _snapshot([work, BRAIN_DIR])  # 시작 전에 있던 그림은 이번 결과로 치지 않는다
@@ -177,8 +190,10 @@ class ImageMaker:
             raise AgyError("agy 이미지 할당량 초과 (429 RESOURCE_EXHAUSTED)", fatal=True)
         if "sign in" in low or "not logged" in low:
             raise AgyError("agy 로그인이 필요합니다.", fatal=True)
-        if "permission" in low and "denied" in low:
-            raise AgyError("agy에서 이미지 도구 권한이 거부되었습니다.", fatal=True)
+        if ("permission" in low and "denied" in low) or "soft-den" in low:
+            # 실제로 본 경우: agy가 generate_image 대신 RunCommand를 시도해 print 모드에서 거부됨.
+            # 이번 카드만 대신하고 다음 카드는 다시 agy를 쓴다.
+            raise AgyError("agy가 그림 도구 대신 다른 도구(명령 실행 등)를 쓰려다 거부되었습니다.")
         found = _find_new_image(work, _conversation_id(out), before)
         if not found:
             raise AgyError("agy 응답은 끝났지만 새 그림 파일을 찾지 못했습니다 (작업 폴더와 brain 폴더 확인).")

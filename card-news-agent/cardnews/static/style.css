@@ -59,6 +59,10 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .tool.alt { background: var(--accent-soft); color: var(--accent); border-color: #bfd4fe; }
 button.small { font-size: 13px; padding: 4px 10px; margin-top: 6px; }
 @media (max-width: 600px) { .sb-card.with-pic { grid-template-columns: 1fr; } .sb-card dl { grid-template-columns: 1fr; } }
+.phone-strip { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 10px 2px 14px; max-width: 100%; }
+.phone-strip img { flex: 0 0 375px; width: 375px; aspect-ratio: 1080 / 1350; scroll-snap-align: start; border-radius: 14px; border: 1px solid var(--line); box-shadow: 0 2px 10px rgba(0,0,0,.08); }
+@media (max-width: 600px) { .phone-strip img { flex-basis: 86vw; width: 86vw; } }
+form.txt input[type=number] { padding: 4px 6px; }
 .err { color: var(--bad); font-size: 14px; margin-top: 8px; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th, td { border: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; }
