@@ -26,6 +26,7 @@
 | STEP 7 스토리보드·그림 | ✅ 실제 엔진으로 스토리보드 6장, agy 그림 1장·도형 그림 1장 확인. 앱 화면에서 전체 승인→그림은 직접 확인 예정 |
 | STEP 8 글자 넣기·휴대폰 미리보기 | ✅ 사용자 프로젝트 7장 PNG 완성, 7장 모두 검사 통과 ([evidence/STEP08-카드7장.png](evidence/STEP08-카드7장.png)) |
 | STEP 9 카드 고치기·최종 승인·내려받기 | ✅ 6장 최종 승인, ZIP 내보내기([evidence/](evidence)), 내보낸 파일 검증 통과 10·실패 0·확인 못 함 4 |
+| 디자인 개선판 (Canva) | 같은 6장 글로 Canva 인스타그램 캐러셀 6장 생성 (사용자 Canva 계정, 디자인 ID DAHYz8RVeuM) |
 | STEP 10 ACCEPTANCE 판정, STEP 6 표, STEP 13 확장 | 아직 |
 
 키트 원본 문서(ACCEPTANCE.md, ENGINE_GUIDE.md, EXAMPLE_RUN.md, REFERENCES.md, assets/)는 비교와 검수를 위해 그대로 두었습니다.
