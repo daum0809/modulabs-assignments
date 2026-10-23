@@ -12,3 +12,4 @@
 | [game](game) | 과일 사다리 레이스 (HTML 게임) | [daum0809/game](https://github.com/daum0809/game) |
 | [gangsa-hours](gangsa-hours) | 강사 근무시간 입력·강사료 계산 앱과 개발 블로그, 사장 문제해결 AI PoC (데이터는 모두 체험용) | [daum0809/gangsa-hours](https://github.com/daum0809/gangsa-hours) |
 | [game2692](game2692) | 보물찾기 · 뜨겁고 차가운 온도계 (HTML 게임) | [daum0809/game2692](https://github.com/daum0809/game2692) |
+| [card-news-agent](card-news-agent) | [Main Quest] 사용자와 함께 만드는 카드뉴스 에이전트 — 주제·자료를 넣으면 조사 → 후보 선택 → 질문·답변으로 카드뉴스를 기획하는 웹앱 (Python, Claude CLI) | — |

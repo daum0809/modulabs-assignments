@@ -1,0 +1,168 @@
+"""모의 엔진. 실제 조사를 하지 않고 화면 흐름을 확인하기 위한 예시 자료만 돌려준다.
+
+모든 후보와 문장 앞에 [모의]를 붙여 실제 결과로 오해하지 않게 한다.
+"""
+
+import time
+import uuid
+from datetime import datetime, timedelta
+
+STEP_SECONDS = 0.8
+
+
+class Cancelled(Exception):
+    pass
+
+
+def _wait(cancel, seconds):
+    if cancel.wait(seconds):
+        raise Cancelled()
+
+
+class MockEngine:
+    name = "mock"
+
+    def __init__(self, fail=None, step_seconds=STEP_SECONDS):
+        # fail: 일부러 실패시킬 작업 이름 집합 (예: {"research"}). 실패 경로 시험용.
+        self.fail = set(fail or [])
+        self.step_seconds = step_seconds
+
+    def new_session(self):
+        return f"mock-{uuid.uuid4().hex[:8]}"
+
+    def research(self, ctx, emit, cancel):
+        emit("[모의] 조사를 시작합니다. 실제 검색은 하지 않습니다.")
+        _wait(cancel, self.step_seconds)
+        if "research" in self.fail:
+            return {
+                "type": "error",
+                "code": "search_failed",
+                "message": "[모의 오류] 검색 도구 호출이 실패했습니다.",
+            }
+        emit("[모의] 예시 후보를 만들었습니다.")
+        _wait(cancel, self.step_seconds)
+
+        now = datetime.now().astimezone()
+        days = ctx.get("periodDays") or 7
+        source = ctx.get("sourcePath")
+        candidates = _mock_candidates(source, now)
+        # 일부러 7개보다 적게 돌려줘 '기간 넓히기' 안내가 보이게 한다(7일일 때만).
+        if days == 7:
+            candidates = candidates[:6]
+        return {
+            "type": "result",
+            "sessionId": ctx.get("sessionId"),
+            "research": {
+                "researchedAt": now.isoformat(timespec="seconds"),
+                "timezone": now.tzname() or "",
+                "periodStart": (now - timedelta(days=days)).date().isoformat(),
+                "periodEnd": now.date().isoformat(),
+                "periodDays": days,
+                "sourcePath": source,
+                "note": "모의 데이터입니다. 실제 조사 결과가 아닙니다.",
+                "mock": True,
+                "candidates": candidates,
+            },
+        }
+
+    def editorial(self, ctx, emit, cancel):
+        answered = {a["key"]: a for a in ctx.get("answers", [])}
+        emit("[모의] 선택한 후보를 심층 조사하는 척합니다.")
+        _wait(cancel, self.step_seconds)
+        if "editorial" in self.fail:
+            return {
+                "type": "error",
+                "code": "engine_error",
+                "message": "[모의 오류] 심층 조사 중 엔진이 잘못된 출력을 돌려줬습니다.",
+            }
+
+        direction = (ctx.get("direction") or "").strip()
+        if "audience" not in answered and not direction:
+            emit("[모의] 독자에 따라 카드 구성이 크게 달라져 질문이 필요합니다.")
+            return {"type": "need_input", "question": _audience_question()}
+
+        if "format" not in answered:
+            audience = answered.get("audience", {}).get("label") or direction
+            emit("[모의] 두 형식의 결과가 크게 달라 형식을 묻습니다.")
+            return {"type": "need_input", "question": _format_question(audience)}
+
+        emit("[모의] 답변을 반영해 편집 방향을 정리했습니다.")
+        _wait(cancel, self.step_seconds)
+        audience = answered.get("audience", {}).get("label") or direction
+        fmt = answered["format"]["label"]
+        return {
+            "type": "result",
+            "editorial": {
+                "mock": True,
+                "audience": audience,
+                "audienceSource": "사용자 답변" if "audience" in answered else "편집 방향 입력",
+                "format": fmt,
+                "hooks": [
+                    f"[모의] {fmt} 표지 문장 예시 1",
+                    f"[모의] {fmt} 표지 문장 예시 2",
+                ],
+                "note": "모의 데이터입니다. 다음 단계(스토리보드)는 아직 만들지 않았습니다.",
+            },
+        }
+
+
+def _mock_candidates(source, now):
+    where = "자료 폴더" if source else "웹"
+    base = [
+        ("반복 업무를 줄인 방법", "문제", "미확인"),
+        ("병목이 어디였는지", "발견", (now - timedelta(days=2)).date().isoformat()),
+        ("계산 규칙 한 가지", "기능", (now - timedelta(days=3)).date().isoformat()),
+        ("화면을 역할별로 나눈 이유", "설계", "미확인"),
+        ("저장 방식을 바꾼 이유", "설계", (now - timedelta(days=5)).date().isoformat()),
+        ("써 보고 알게 된 한계", "한계", (now - timedelta(days=6)).date().isoformat()),
+        ("직접 따라 해 보는 순서", "사용법", "미확인"),
+        ("다음에 고칠 점", "계획", "미확인"),
+    ]
+    out = []
+    for i, (title, kind, date) in enumerate(base, start=1):
+        out.append(
+            {
+                "id": f"c{i}",
+                "title": f"[모의] 후보 {i}: {title}",
+                "summary": f"[모의] {where}에서 찾았다고 가정한 예시 요약입니다.",
+                "kind": kind,
+                "date": date,
+                "source": (f"{source} (예시 경로)" if source else "https://example.com/mock"),
+                "value": "[모의] 이 후보를 고를 가치 예시",
+                "uncertainty": "[모의] 날짜 미확인" if date == "미확인" else "[모의] 불확실성 예시",
+            }
+        )
+    return out
+
+
+def _audience_question():
+    return {
+        "key": "audience",
+        "question": "누구를 위한 카드뉴스인가요?",
+        "why": "[모의] 독자에 따라 카드 순서와 용어 설명이 크게 달라집니다.",
+        "options": [
+            {"id": "owner-new", "label": "자동화가 처음인 사장님", "desc": "왜 필요한지부터, 용어는 쉽게"},
+            {"id": "owner-ready", "label": "써 보고 싶은 사장님", "desc": "따라 할 순서와 조건 중심"},
+            {"id": "staff", "label": "함께 쓰는 직원·강사", "desc": "입력하는 방법과 바뀌는 점 중심"},
+        ],
+        "recommended": "owner-new",
+        "recommendReason": "[모의] 편집 방향이 비어 있어 가장 넓은 독자를 추천합니다.",
+        "multiSelect": False,
+        "allowFree": True,
+    }
+
+
+def _format_question(audience):
+    return {
+        "key": "format",
+        "question": "어떤 형식으로 만들까요?",
+        "why": f"[모의] '{audience}' 독자에게는 두 형식 모두 맞을 수 있어 결과가 갈립니다.",
+        "options": [
+            {"id": "story", "label": "이야기형", "desc": "상황 → 불편 → 바뀐 점 → 활용 → 한계"},
+            {"id": "steps", "label": "단계 안내형", "desc": "준비물 → 1단계 → 2단계 → 결과 확인"},
+        ],
+        "recommended": "story",
+        "recommendReason": "[모의] 처음 보는 독자에게는 변화의 의미부터 보여 주는 편이 쉽습니다.",
+        "multiSelect": False,
+        "allowFree": True,
+    }
