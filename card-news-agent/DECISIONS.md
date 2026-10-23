@@ -82,7 +82,7 @@ STEP 4 확인 (Claude Code가 2026-10-23에 `data-test`에서 확인, 확인 후
 | 검색 없이 만든 후보 막기 | 웹 조사인데 WebSearch가 0회면 `search_failed` | 검색 결과 없이 후보를 지어내는 것을 막는다. |
 | 데스크톱 앱 환경변수 | `CLAUDECODE`, `CLAUDE_CODE_*` 등은 하위 claude에 넘기지 않음 | 이 데스크톱 앱 안에서 연 터미널로 서버를 켜도 사용자의 CLI 로그인을 쓰게 한다. |
 
-실제 연결 확인 결과는 [VALIDATION.md](VALIDATION.md). **CLI 로그인이 안 되어 실제 검색 흐름은 아직 미확인.**
+실제 연결 확인 결과는 [VALIDATION.md](VALIDATION.md). 다시 로그인한 뒤 실제 엔진으로 조사 → 선택 → 편집 판단까지 확인했다. 실제 엔진이 질문을 내고 답변 후 이어 가는 흐름은 미확인(가짜 CLI로만 확인).
 
 ## STEP 7. 스토리보드와 그림 — 구현상의 기본안 (2026-10-23)
 

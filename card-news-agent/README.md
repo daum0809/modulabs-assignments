@@ -6,7 +6,7 @@
 
 - **주제:** 사장님을 위한 자동화 프로그램 소개. 오늘은 [gangsa-hours](../gangsa-hours)(학원 강사 근무시간 입력·강사료 계산)로 카드뉴스 한 편.
 - **만든 방식:** 교안의 [카드뉴스 워크플로 설계 키트 v5.0.0](https://github.com/SunCreation/agent-building-practice/releases/tag/v5.0.0)(PRD·ACCEPTANCE 등)을 받아, 코딩 에이전트(Claude Code)와 바이브코딩으로 구현. PRD는 내 선택(형식 가설·편집 규칙·내 자료 주제)을 반영해 고쳤습니다.
-- **구현:** Python(외부 패키지 없음) · 실행 엔진 Claude CLI · 이미지 Antigravity CLI(agy, 연결 예정)
+- **구현:** Python(외부 패키지 없음) · 실행 엔진 Claude CLI · 이미지 Antigravity CLI(agy) → 안 되면 Claude CLI 도형 그림 · 마무리 디자인 Canva
 
 | 제출물 | 파일 | 상태 |
 |---|---|---|
@@ -14,9 +14,9 @@
 | 요구사항 (내 선택 반영) | [PRD.md](PRD.md) | ✅ |
 | 결정과 이유 | [DECISIONS.md](DECISIONS.md) | ✅ |
 | 화면과 서버의 약속 | [API_SPEC.md](API_SPEC.md) | ✅ |
-| 검증 기록 | [VALIDATION.md](VALIDATION.md) | STEP 5까지 (실제 엔진으로 gangsa-hours 조사 → 편집 판단 확인) |
-| 실행 화면·결과 | [evidence/](evidence) | ✅ 형식 가설, 모의 화면, 스토리보드·그림 화면, 카드 7장·6장 미리보기, 최종 ZIP, 확장 체크리스트 |
-| 카드뉴스 결과(PNG·ZIP), ACCEPTANCE 판정, 확장 과제 | [ZIP](evidence/STEP09-카드뉴스-cardnews-20261023-164008.zip) · [ACCEPTANCE.md](ACCEPTANCE.md) · [CHECKLIST_PRD.md](CHECKLIST_PRD.md) | ✅ 카드 6장 PNG·ZIP(검증 통과 10·실패 0), ACCEPTANCE 통과 13·일부 미확인 2·실패 0, 확장 정상 입력·자료 부족 입력 실행 |
+| 검증 기록 | [VALIDATION.md](VALIDATION.md) | ✅ STEP 5~13 (STEP 6 다섯 칸 표, STEP 11 교차 검수, STEP 12 비교, 모의·실제 구분, 아직 확인 못 한 것) |
+| 실행 화면·결과 | [evidence/](evidence) | ✅ 형식 가설, 모의 화면, 스토리보드·그림 화면(글을 고치기 전 화면), 카드 7장·6장 미리보기, 6번 카드 고치기 전·후, 최종 ZIP, Canva 개선판, 확장 체크리스트 |
+| 카드뉴스 결과(PNG·ZIP), ACCEPTANCE 판정, 확장 과제 | [최종 ZIP](evidence/STEP11-카드뉴스-cardnews-20261023-190828.zip) · [Canva 개선판](evidence/STEP09-Canva-개선판) · [ACCEPTANCE.md](ACCEPTANCE.md) · [CHECKLIST_PRD.md](CHECKLIST_PRD.md) | ✅ 카드 6장 PNG·ZIP(검증 통과 10·실패 0), ACCEPTANCE 통과 13·일부 미확인 2·실패 0, 확장 정상 입력·자료 부족 입력 실행 |
 
 | 단계 | 상태 |
 |---|---|
@@ -26,14 +26,16 @@
 | STEP 7 스토리보드·그림 | ✅ 사용자가 앱 화면에서 스토리보드 7장 승인 → 카드별 그림 완성(agy 6장 · claude cli 도형 그림 1장), 카드마다 도구 기록 |
 | STEP 8 글자 넣기·휴대폰 미리보기 | ✅ 사용자 프로젝트 7장 PNG 완성, 7장 모두 검사 통과 ([evidence/STEP08-카드7장.png](evidence/STEP08-카드7장.png)) |
 | STEP 9 카드 고치기·최종 승인·내려받기 | ✅ 6장 최종 승인, ZIP 내보내기([evidence/](evidence)), 내보낸 파일 검증 통과 10·실패 0·확인 못 함 4 |
-| 디자인 개선판 (Canva) | 같은 6장 글로 Canva 인스타그램 캐러셀 6장 생성 (사용자 Canva 계정, 디자인 ID DAHYz8RVeuM) |
+| STEP 11 교차 검수 (혼자 진행) | ✅ 핵심 문장 원문 대조(2번 일치, 주휴수당 조건 대조), 휴대폰 너비에서 가장 읽기 어려운 6번 카드만 고침 → 다시 승인·ZIP 검증 ([VALIDATION.md](VALIDATION.md)) |
+| STEP 12 참고 구현 비교 | ✅ 내 앱 기준 비교 3가지 ([VALIDATION.md](VALIDATION.md)). 참고 구현 직접 실행은 하지 않음 |
+| 디자인 개선판 (Canva) | ✅ 같은 글을 사용자가 고른 Canva 무료 템플릿 6장에 넣음 → 결과 [evidence/STEP09-Canva-개선판/](evidence/STEP09-Canva-개선판) |
 | STEP 6 질문·재개 검증 표 | ✅ [VALIDATION.md](VALIDATION.md) 다섯 칸 표 |
 | STEP 10 ACCEPTANCE 판정 | ✅ [ACCEPTANCE.md](ACCEPTANCE.md): 통과 13 · 일부 미확인 2 · 실패 0 |
 | STEP 13 확장: 사장님 도입 체크리스트 | ✅ [CHECKLIST_PRD.md](CHECKLIST_PRD.md), 정상 입력·자료 부족 입력 실제 실행 ([VALIDATION.md](VALIDATION.md)) |
 
 키트 원본 문서(ACCEPTANCE.md, ENGINE_GUIDE.md, EXAMPLE_RUN.md, REFERENCES.md, assets/)는 비교와 검수를 위해 그대로 두었습니다.
 
-> **지금 단계 (STEP 9): 카드 고치기 · 최종 승인 · 내려받기까지 전체 흐름.**
+> **완성 범위: 카드 고치기 · 최종 승인 · 내려받기까지 전체 흐름 + 확장(사장님 도입 체크리스트).**
 > 주제 입력 → 조사 → 후보 고르기 → 질문에 답하기 → 편집 방향·심층 검증 → 스토리보드 승인 → 카드별 그림 → 글자 넣기·휴대폰 미리보기 → 요청문으로 카드 고치기 → 최종 승인 → 내려받기(PNG·ZIP)까지 됩니다.
 > 확장 기능으로 **사장님 도입 체크리스트**도 만들 수 있습니다(아래 설명).
 > `--engine mock`으로 켜면 화면 위쪽에 노란 "모의 데이터입니다" 띠가 보이고, 그때의 후보와 질문은 **실제 조사 결과가 아닌 예시**입니다.
@@ -169,7 +171,7 @@ python --version
 ## 폴더 구성
 
 ```
-card-news-workflow-kit/
+card-news-agent/
 ├── cardnews/              앱 코드
 │   ├── __main__.py        실행 (python -m cardnews)
 │   ├── server.py          웹 서버와 API
