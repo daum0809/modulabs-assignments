@@ -20,6 +20,15 @@ RESEARCH_ALLOWED = {"created", "candidates_ready", "failed", "interrupted", "can
 RETRY_ALLOWED = {"failed", "interrupted", "cancelled"}
 
 
+IMAGE_TYPES = {".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}
+
+
+class FileResponse:
+    def __init__(self, path, ctype):
+        self.path = path
+        self.ctype = ctype
+
+
 class ApiError(Exception):
     def __init__(self, status, code, message):
         super().__init__(message)
@@ -233,6 +242,97 @@ class App:
 
         return self._update(project_id, fn)
 
+    def storyboard(self, project_id, body):
+        """스토리보드 만들기. feedback이 있으면 변경 요청으로 다시 만든다(승인 전까지만)."""
+        rid = body.get("requestId")
+        feedback = str(body.get("feedback") or "").strip()
+        payload = {"feedback": feedback}
+
+        def fn(doc):
+            replay = check_request(doc, rid, "storyboard", payload)
+            if replay is not None:
+                return replay, None
+            if doc["status"] in ACTIVE_STATUSES:
+                raise ApiError(409, "invalid_state", "다른 작업이 진행 중입니다.")
+            sb = doc.get("storyboard")
+            if sb and sb.get("approved"):
+                raise ApiError(409, "storyboard_locked", "이미 승인한 스토리보드입니다.")
+            if doc["status"] not in ("editorial_ready", "storyboard_ready"):
+                raise ApiError(409, "invalid_state", "편집 방향이 정해진 뒤에 스토리보드를 만들 수 있습니다.")
+            if feedback:
+                if not sb:
+                    raise ApiError(400, "bad_request", "변경 요청은 스토리보드가 나온 뒤에 할 수 있습니다.")
+                doc.setdefault("storyboardFeedback", []).append(feedback[:1000])
+                add_event(doc, f"스토리보드 변경 요청: {feedback[:80]}")
+            run = self.runner.prepare(doc, "storyboard", "running")
+            resp = {"runId": run["id"], "status": doc["status"]}
+            remember(doc, rid, "storyboard", payload, resp)
+            return resp, run
+
+        return self._update(project_id, fn)
+
+    def approve(self, project_id, body):
+        rid = body.get("requestId")
+        stage = body.get("stage")
+        version = body.get("version")
+        payload = {"stage": stage, "version": version}
+        if stage != "storyboard":
+            raise ApiError(400, "bad_request", "지금은 stage=storyboard 승인만 있습니다(최종 승인은 다음 단계).")
+
+        def fn(doc):
+            replay = check_request(doc, rid, "approve", payload)
+            if replay is not None:
+                return replay, None
+            sb = doc.get("storyboard")
+            if doc["status"] != "storyboard_ready" or not sb:
+                raise ApiError(409, "invalid_state", "승인할 스토리보드가 없습니다.")
+            if version != sb.get("version"):
+                raise ApiError(409, "stale_version", "스토리보드가 바뀌었습니다. 새로 불러와 다시 확인해 주세요.")
+            sb["approved"] = {"version": version, "at": now_iso()}
+            for c in sb["cards"]:
+                c["image"] = {"status": "pending"}
+            add_event(doc, f"스토리보드 버전 {version} 승인. 그림 만들기를 시작합니다.")
+            run = self.runner.prepare(doc, "images", "running", cards=[c["no"] for c in sb["cards"]])
+            resp = {"runId": run["id"], "status": doc["status"]}
+            remember(doc, rid, "approve", payload, resp)
+            return resp, run
+
+        return self._update(project_id, fn)
+
+    def card_image(self, project_id, no, body):
+        """카드 하나의 그림만 다시 만든다. 다른 카드와 승인한 스토리보드는 그대로 둔다."""
+        rid = body.get("requestId")
+        no = int(no)
+
+        def fn(doc):
+            replay = check_request(doc, rid, "card_image", {"no": no})
+            if replay is not None:
+                return replay, None
+            sb = doc.get("storyboard") or {}
+            if not sb.get("approved") or doc["status"] in ACTIVE_STATUSES:
+                raise ApiError(409, "invalid_state", "스토리보드 승인 뒤, 다른 작업이 없을 때 다시 만들 수 있습니다.")
+            card = next((c for c in sb["cards"] if c["no"] == no), None)
+            if card is None:
+                raise ApiError(404, "not_found", "없는 카드입니다.")
+            card["image"] = dict(card.get("image") or {}, status="pending")
+            add_event(doc, f"카드 {no} 그림 다시 만들기")
+            run = self.runner.prepare(doc, "images", "running", cards=[no])
+            resp = {"runId": run["id"], "status": doc["status"]}
+            remember(doc, rid, "card_image", {"no": no}, resp)
+            return resp, run
+
+        return self._update(project_id, fn)
+
+    def image_file(self, project_id, name):
+        self._get(project_id)
+        path = self.store.data_dir / "projects" / project_id / "images" / name
+        if not path.is_file():
+            raise ApiError(404, "not_found", "그림 파일이 없습니다.")
+        ctype = IMAGE_TYPES.get(path.suffix.lower())
+        if not ctype:
+            raise ApiError(404, "not_found", "그림 파일이 아닙니다.")
+        return FileResponse(path, ctype)
+
     def retry(self, project_id, body):
         rid = body.get("requestId")
 
@@ -244,7 +344,10 @@ class App:
                 raise ApiError(409, "invalid_state", "다시 시도할 작업이 없습니다.")
             last = find_run(doc, doc.get("currentRunId"))
             kind = (doc.get("error") or {}).get("retryKind") or (last["kind"] if last else "research")
-            run = self.runner.prepare(doc, kind, "researching" if kind == "research" else "running")
+            cards = None
+            if kind == "images":  # 그림을 못 만든 카드만 다시
+                cards = [c["no"] for c in doc["storyboard"]["cards"] if (c.get("image") or {}).get("status") != "done"]
+            run = self.runner.prepare(doc, kind, "researching" if kind == "research" else "running", cards=cards)
             resp = {"runId": run["id"], "status": doc["status"]}
             remember(doc, rid, "retry", {}, resp)
             return resp, run
@@ -265,6 +368,10 @@ class App:
                 return {"runId": run_id, "status": run["status"]}, None
             run["status"] = "cancelled"
             run["finishedAt"] = now_iso()
+            for c in (doc.get("storyboard") or {}).get("cards", []):
+                img = c.get("image") or {}
+                if img.get("status") in ("pending", "generating"):
+                    c["image"] = dict(img, status="failed", error="취소했습니다.")
             doc["status"] = "cancelled"
             doc["error"] = {"code": "cancelled", "message": "작업을 취소했습니다. 다시 시도할 수 있습니다.", "retryKind": run["kind"]}
             add_event(doc, f"작업 취소: {run_id}")
@@ -311,6 +418,10 @@ ROUTES = [
     ("POST", r"/api/projects/(?P<pid>prj_\w+)/selection", "selection"),
     ("POST", r"/api/projects/(?P<pid>prj_\w+)/answers", "answer"),
     ("POST", r"/api/projects/(?P<pid>prj_\w+)/retry", "retry"),
+    ("POST", r"/api/projects/(?P<pid>prj_\w+)/storyboard", "storyboard"),
+    ("POST", r"/api/projects/(?P<pid>prj_\w+)/approve", "approve"),
+    ("POST", r"/api/projects/(?P<pid>prj_\w+)/cards/(?P<no>\d{1,2})/image", "card_image"),
+    ("GET", r"/api/projects/(?P<pid>prj_\w+)/images/(?P<name>card-\d{2}-v\d+\.(?:svg|png|jpg|jpeg|webp))", "image_file"),
     ("POST", r"/api/runs/(?P<rid>run_\w+)/cancel", "cancel_run"),
 ]
 
@@ -344,6 +455,9 @@ def make_handler(app):
                         if method == "POST":
                             args.append(self._body())
                         result = getattr(app, name)(*args)
+                        if isinstance(result, FileResponse):
+                            self._send(200, result.path.read_bytes(), result.ctype)
+                            return
                         status = 201 if name == "create_project" else 200
                         self._json(status, result)
                         return

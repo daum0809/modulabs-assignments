@@ -12,15 +12,17 @@ RESULT_TYPES = {"need_input", "result", "error"}
 
 
 class Runner:
-    def __init__(self, store, engine):
+    def __init__(self, store, engine, images=None):
         self.store = store
         self.engine = engine
+        self.images = images  # 그림 작업자 (ImageMaker)
         self._cancels = {}
 
     # --- 문서 수정 (store.update 안에서 호출) ---
 
-    def prepare(self, doc, kind, status):
-        """새 작업 기록을 doc에 만든다. 실제 실행은 저장 후 launch()로 시작한다."""
+    def prepare(self, doc, kind, status, cards=None):
+        """새 작업 기록을 doc에 만든다. 실제 실행은 저장 후 launch()로 시작한다.
+        cards: 그림 작업에서 만들 카드 번호 목록."""
         run = {
             "id": new_id("run"),
             "kind": kind,
@@ -29,6 +31,8 @@ class Runner:
             "finishedAt": None,
             "error": None,
         }
+        if cards is not None:
+            run["cards"] = list(cards)
         doc.setdefault("runs", []).append(run)
         doc["currentRunId"] = run["id"]
         doc["status"] = status
@@ -57,7 +61,11 @@ class Runner:
 
         try:
             doc = self.store.get(project_id)
-            out = getattr(self.engine, kind)(_context(doc), emit, cancel)
+            if kind == "images":
+                cards = find_run(doc, run_id).get("cards") or []
+                out = self.images.run(project_id, run_id, cards, emit, cancel)
+            else:
+                out = getattr(self.engine, kind)(_context(doc), emit, cancel)
         except Cancelled:
             return
         except Exception as exc:  # 엔진 내부 오류도 화면에 이유를 보여 준다
@@ -87,6 +95,9 @@ def _context(doc):
         "periodDays": doc.get("periodDays"),
         "selected": [c for c in research.get("candidates", []) if c["id"] in chosen],
         "answers": doc.get("answers", []),
+        "editorial": doc.get("editorial"),
+        "storyboard": doc.get("storyboard"),
+        "storyboardFeedback": doc.get("storyboardFeedback") or [],
     }
 
 
@@ -109,6 +120,15 @@ def _invalid(out, kind):
         if not isinstance(r.get("candidates"), list):
             return "조사 결과에 candidates 목록이 없습니다."
         return None
+    if kind == "storyboard":
+        cards = (out.get("storyboard") or {}).get("cards")
+        if not isinstance(cards, list) or not 3 <= len(cards) <= 10:
+            return "스토리보드 카드가 3~10장이 아닙니다."
+        if not all(isinstance(c, dict) and c.get("title") for c in cards):
+            return "제목이 없는 카드가 있습니다."
+        return None
+    if kind == "images":
+        return None if isinstance(out.get("images"), dict) else "그림 작업 결과가 없습니다."
     if not isinstance(out.get("editorial"), dict):
         return "편집 결과에 editorial이 없습니다."
     return None
@@ -161,6 +181,23 @@ def _apply(doc, run_id, kind, out, new_session):
         doc["selection"] = {"candidateIds": [], "confirmed": False, "savedAt": None}
         doc["status"] = "candidates_ready"
         add_event(doc, f"후보 {len(research['candidates'])}개를 받았습니다.")
+    elif kind == "storyboard":
+        prev = doc.get("storyboard") or {}
+        sb = dict(out["storyboard"])
+        for i, c in enumerate(sb["cards"], start=1):
+            c["no"] = i  # 번호는 앱이 1부터 다시 매긴다
+            c.pop("image", None)
+            c.setdefault("sources", [])
+        sb["version"] = int(prev.get("version") or 0) + 1
+        sb["approved"] = None
+        sb["createdAt"] = now_iso()
+        doc["storyboard"] = sb
+        doc["status"] = "storyboard_ready"
+        add_event(doc, f"스토리보드 {len(sb['cards'])}장 (버전 {sb['version']}). 승인을 기다립니다.")
+    elif kind == "images":
+        summary = out["images"]
+        doc["status"] = "images_ready"
+        add_event(doc, f"그림 작업 끝: 완료 {summary['made']}장, 실패 {summary['failed']}장")
     else:
         doc["editorial"] = out["editorial"]
         doc["status"] = "editorial_ready"

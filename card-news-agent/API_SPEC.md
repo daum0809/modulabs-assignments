@@ -1,7 +1,7 @@
 # API_SPEC — 화면과 서버의 약속
 
 PRD.md의 "웹 API 계약 초안"을 Python 구현(`cardnews/server.py`)에 맞춰 확정한 문서다.
-지금 구현된 범위는 **주제 입력 → 조사 → 후보 선택 → 질문·답변 → 편집 방향(심층 검증 포함)**까지다(STEP 5, 모의 엔진과 Claude CLI 엔진).
+지금 구현된 범위는 **주제 입력 → 조사 → 후보 선택 → 질문·답변 → 편집 방향(심층 검증 포함) → 스토리보드 승인 → 카드별 그림**까지다(STEP 7). 글자 배치·수정·내려받기(`/revisions`, `/exports`, 최종 승인)는 아직 없다.
 스토리보드 승인·수정·내보내기(`/approve`, `/revisions`, `/exports`)는 아직 없다.
 
 ## 기본
@@ -145,8 +145,53 @@ created → researching → candidates_ready → running → waiting_for_user �
 
 결과: `{ "accepted": true, "status": "running", "runId" }`
 
+### `POST /api/projects/{id}/storyboard` (STEP 7)
+| 입력 | 필수 | 설명 |
+|---|---|---|
+| `requestId` | ✔ | |
+| `feedback` | | 변경 요청 문장. 있으면 지난 스토리보드에 이 요청만 반영해 다시 만든다 |
+
+`editorial_ready` 또는 승인 전 `storyboard_ready`에서만. 승인한 뒤에는 `409 storyboard_locked`. 결과 `{ runId, status: "running" }` → 끝나면 `status: "storyboard_ready"`.
+
+### `POST /api/projects/{id}/approve`
+`{ stage: "storyboard", version, requestId }`. 화면이 본 `storyboard.version`과 다르면 `409 stale_version`. 승인하면 모든 카드의 `image.status`를 `pending`으로 두고 **그림 작업을 시작**한다(`status: running` → 끝나면 `images_ready`). `stage: "final"`은 STEP 9에서 추가.
+
+### `POST /api/projects/{id}/cards/{no}/image`
+`{ requestId }`. 카드 하나의 그림만 다시 만든다(새 버전 파일, 이전 파일 보관). 다른 카드와 승인한 스토리보드는 그대로.
+
+### `GET /api/projects/{id}/images/{file}`
+그림 파일(`card-NN-vK.svg|png|jpg|jpeg|webp`)을 그대로 준다.
+
+### 스토리보드·그림 데이터 (`GET /api/projects/{id}`의 `storyboard`)
+```json
+{
+  "version": 2, "approved": { "version": 2, "at": "..." }, "format": "이야기형", "reason": "...",
+  "style": { "palette": ["#1F3A5F"], "illustration": "...", "mood": "...", "layout": "위쪽 40%를 비워 제목 자리" },
+  "cards": [{
+    "no": 1, "role": "표지", "title": "...", "keyLine": "...", "body": "...", "imageRole": "...", "imagePlan": "...",
+    "sources": ["...README.md"], "note": "...",
+    "image": {
+      "status": "done", "version": 1, "tool": "agy | claude-cli-svg | mock-svg", "toolLabel": "...",
+      "file": "card-01-v1.jpg", "format": "JPEG", "width": 896, "height": 1200, "bytes": 123456,
+      "kind": "생성 이미지", "prompt": "그림 요청문", "createdAt": "...",
+      "fallbackReason": "agy를 쓰지 않은 이유 (agy로 만들었으면 null)", "attempts": [{ "tool": "agy", "error": "..." }],
+      "costUsd": 0.069, "error": null
+    }
+  }]
+}
+```
+- `image.status`: `pending`(차례 기다림) / `generating` / `done` / `failed`(`error`에 이유). 파일이 실제 이미지인지 검사한 뒤에만 `done`.
+- 프로젝트 `storyboardFeedback`: 반영한 변경 요청 목록.
+- 새 상태: `storyboard_ready`(승인 기다림), `images_ready`(그림 작업 끝, 실패한 카드가 있을 수 있음).
+
 ### `POST /api/projects/{id}/retry`
-`{ "requestId" }`. `failed / interrupted / cancelled`일 때 실패한 작업(`error.retryKind`)을 다시 시작한다. 이미 받은 후보·선택·답변은 그대로 둔다.
+`{ "requestId" }`. `failed / interrupted / cancelled`일 때 실패한 작업(`error.retryKind`)을 다시 시작한다. 이미 받은 후보·선택·답변은 그대로 둔다. 그림 작업이면 `done`이 아닌 카드만 다시 만든다.
+
+### 그림 작업자 (`cardnews/images.py`)
+1. 작업마다 `agy models`로 agy 설치·로그인 확인.
+2. 가능하면 `agy -p "<내장 generate_image로 … 저장해 줘>" --output-format json`(작업 폴더 `data\engine-work\<프로젝트>\agy`). 응답의 대화 ID로 `~/.gemini/antigravity-cli/brain/<대화 ID>/`와 작업 폴더에서 **시작 뒤 새로 생기거나 바뀐** 그림을 찾아 복사. 응답 문장·종료 코드만으로 성공 처리하지 않음.
+3. agy가 없거나 로그인·한도(429)·권한 문제면 남은 카드는 agy를 건너뛰고, 실패하면 그 카드만 claude cli 도형 그림으로 대신. 도형 그림은 프로젝트 대화와 따로(`--no-session-persistence`, 도구 없음) SVG 코드만 받아 script·text·외부 링크를 지우고 1080×1350으로 맞춤.
+4. 저장: `data\projects\<프로젝트>\images\card-NN-vK.<형식>` (이전 버전 보관). PNG·JPEG·WEBP·SVG 머리 부분으로 형식과 크기를 검사.
 
 ### `POST /api/runs/{runId}/cancel`
 본문 없음. 실행 중인 작업을 취소한다 → 프로젝트 `status: "cancelled"`. 취소 뒤 늦게 도착한 엔진 결과는 버린다.

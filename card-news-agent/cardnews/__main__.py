@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from .engines import ENGINES, make_engine
+from .images import ImageMaker
 from .jobs import Runner
 from .server import App, serve
 from .store import Store
@@ -38,7 +39,8 @@ def main(argv=None):
     p.add_argument("--model", default="sonnet", help="claude-cli 모델 (기본 sonnet)")
     p.add_argument("--effort", default="medium", help="claude-cli effort (기본 medium)")
     p.add_argument("--claude-path", default=None, help="claude.exe 경로 (자동으로 못 찾을 때만)")
-    p.add_argument("--mock-fail", default="", help="시험용(mock): 일부러 실패시킬 작업 (research,editorial)")
+    p.add_argument("--no-agy", action="store_true", help="그림에 agy를 쓰지 않고 바로 claude cli 도형 그림으로 만든다")
+    p.add_argument("--mock-fail", default="", help="시험용(mock): 일부러 실패시킬 작업 (research,editorial,storyboard,image)")
     args = p.parse_args(argv)
 
     # Windows 콘솔에서도 한글이 깨지지 않게 한다.
@@ -60,7 +62,8 @@ def main(argv=None):
         return 1
     status = check_claude_login(engine.exe) if args.engine == "claude-cli" else None
     interrupted = store.mark_interrupted()
-    runner = Runner(store, engine)
+    images = ImageMaker(store, engine, use_agy=args.engine != "mock" and not args.no_agy)
+    runner = Runner(store, engine, images)
     app = App(store, runner, engine.name, status)
 
     try:
@@ -78,6 +81,11 @@ def main(argv=None):
         print(f" 실행 엔진: Claude CLI ({args.model}, effort {args.effort})")
         print(f"   {engine.exe}")
         print(" 로그인: " + ("확인됨" if status["ready"] else "⚠ " + status["note"]))
+    if engine.name != "mock":
+        if images.use_agy:
+            print(f" 그림: agy {'(' + images.agy + ')' if images.agy else '없음'} → 안 되면 claude cli 도형 그림")
+        else:
+            print(" 그림: claude cli 도형 그림 (--no-agy)")
     print(f" 결과 보관 폴더: {store.data_dir}")
     if fail:
         print(f" 시험용 모의 실패: {', '.join(sorted(fail))}")

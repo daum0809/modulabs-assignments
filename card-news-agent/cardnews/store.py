@@ -93,6 +93,9 @@ class Store:
                     run["status"] = "interrupted"
                     run["finishedAt"] = now_iso()
                     run["error"] = "서버가 다시 시작되어 작업이 중단되었습니다."
+                from .images import mark_interrupted_cards
+
+                mark_interrupted_cards(d)
                 d["status"] = "interrupted"
                 d["error"] = {
                     "code": "interrupted",

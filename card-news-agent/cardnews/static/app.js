@@ -9,6 +9,8 @@ const STATUS_LABEL = {
   running: "작업 중",
   waiting_for_user: "답변 기다리는 중",
   editorial_ready: "편집 방향 정리됨",
+  storyboard_ready: "스토리보드 승인 기다리는 중",
+  images_ready: "그림 완료",
   failed: "실패",
   interrupted: "중단됨",
   cancelled: "취소됨",
@@ -140,6 +142,7 @@ function renderProject(p) {
     ${answersSection(p)}
     ${questionSection(p)}
     ${editorialSection(p)}
+    ${storyboardSection(p)}
     <details id="log" ${logOpen ? "open" : ""}><summary>작업 진행 내역 (${(p.events || []).length})</summary>
       <div class="log">${(p.events || []).slice().reverse().map((e) => `<div>${esc(e.at)} — ${esc(e.message)}</div>`).join("")}</div>
     </details>
@@ -269,6 +272,66 @@ function editorialSection(p) {
       ${traceLine(e.trace, e.costUsd)}</div>` : ""}`;
 }
 
+function storyboardSection(p) {
+  const sb = p.storyboard;
+  if (!sb) {
+    if (p.status !== "editorial_ready") return "";
+    return `<h2>5. 스토리보드</h2><div class="box"><div class="muted">편집 방향을 바탕으로 카드 5~8장의 설계도를 만듭니다. 승인하기 전에는 그림을 만들지 않습니다.</div>
+      <div class="row"><button id="make-sb">스토리보드 만들기</button></div></div>`;
+  }
+  const st = sb.style || {};
+  const approved = !!sb.approved;
+  const swatches = (st.palette || []).map((c) => `<span class="sw" style="background:${/^#[0-9a-fA-F]{3,8}$/.test(c) ? c : "#ccc"}" title="${esc(c)}"></span>`).join("");
+  return `<h2>5. 스토리보드 <span class="muted">버전 ${esc(sb.version)} · ${sb.cards.length}장 ·
+      ${approved ? `승인함 (${esc(sb.approved.at)})` : "승인 전"}</span></h2>
+    <div class="box ${sb.mock ? "warn" : ""}">
+      형식: <b>${esc(sb.format || "")}</b> ${sb.reason ? `<span class="muted">— ${esc(sb.reason)}</span>` : ""}<br>
+      공통 그림체: ${swatches} ${esc(st.illustration || "")} · ${esc(st.mood || "")} · ${esc(st.layout || "")}
+      ${(p.storyboardFeedback || []).length ? `<div class="muted">반영한 변경 요청: ${p.storyboardFeedback.map(esc).join(" / ")}</div>` : ""}
+    </div>
+    <div class="sb-cards">${sb.cards.map((c) => sbCard(p, c, approved)).join("")}</div>
+    ${!approved && p.status === "storyboard_ready" ? `
+      <div class="box">
+        <label class="field" for="sb-feedback">변경 요청 (카드 번호 + 문제 + 원하는 결과)</label>
+        <textarea id="sb-feedback" placeholder="예: 4번 카드의 본문이 길어. 핵심 조건은 유지하고 두 문장으로 줄여 줘."></textarea>
+        <div class="row"><button class="secondary" id="sb-change">변경 요청 보내기</button>
+          <button id="sb-approve" data-version="${esc(sb.version)}">이대로 승인하고 그림 만들기</button></div>
+        <div class="muted">승인하기 전에는 그림을 만들지 않습니다. 그림은 agy로 먼저 시도하고, 안 되면 claude cli 도형 그림으로 대신합니다.</div>
+        <div id="sb-err" class="err"></div>
+      </div>` : ""}`;
+}
+
+function sbCard(p, c, approved) {
+  const img = c.image || {};
+  let pic = "";
+  if (approved) {
+    if (img.status === "done") {
+      pic = `<div class="pic"><img src="/api/projects/${esc(p.id)}/images/${esc(img.file)}" alt="카드 ${esc(c.no)} 그림 (생성 이미지)">
+        <div class="tool ${img.tool === "agy" ? "" : "alt"}">${esc(img.toolLabel || img.tool)}</div>
+        ${img.fallbackReason ? `<div class="muted">대신한 이유: ${esc(img.fallbackReason)}</div>` : ""}
+        <div class="muted">${esc(img.format)} ${esc(img.width)}×${esc(img.height)} · ${esc(img.file)} · ${esc(img.kind || "")}</div>
+        <details><summary class="muted">그림 요청문</summary><div class="muted">${esc(img.prompt)}</div></details>
+        <button class="secondary small regen" data-no="${esc(c.no)}" ${ACTIVE.has(p.status) ? "disabled" : ""}>이 카드 그림 다시 만들기</button></div>`;
+    } else if (img.status === "failed") {
+      pic = `<div class="pic fail"><b>그림 실패</b><div>${esc(img.error)}</div>
+        ${img.fallbackReason ? `<div class="muted">agy: ${esc(img.fallbackReason)}</div>` : ""}
+        <button class="small regen" data-no="${esc(c.no)}" ${ACTIVE.has(p.status) ? "disabled" : ""}>이 카드 그림 다시 만들기</button></div>`;
+    } else {
+      pic = `<div class="pic wait">${img.status === "generating" ? "⏳ 그림 만드는 중…" : "차례를 기다리는 중"}</div>`;
+    }
+  }
+  return `<div class="sb-card ${approved ? "with-pic" : ""}">
+    ${pic}
+    <div><div class="muted">#${esc(c.no)} · ${esc(c.role)}</div>
+      <div class="t">${esc(c.title)}</div>
+      <div><b>${esc(c.keyLine)}</b></div>
+      <div>${esc(c.body)}</div>
+      <dl><dt>그림 역할</dt><dd>${esc(c.imageRole)}</dd><dt>그림 계획</dt><dd>${esc(c.imagePlan)}</dd>
+        <dt>출처</dt><dd>${(c.sources || []).map(srcLink).join("<br>")}</dd></dl>
+      ${c.note ? `<div class="note">⚠ ${esc(c.note)}</div>` : ""}</div>
+  </div>`;
+}
+
 function bindProject(p) {
   const pid = p.id;
   const reload = () => { lastJson = ""; clearTimeout(pollTimer); showProject(pid); };
@@ -295,6 +358,30 @@ function bindProject(p) {
     if (!r.ok) alert(errMsg(r));
     reload();
   };
+
+  const post = async (btn, path, body, errId) => {
+    btn.disabled = true;
+    const r = await api("POST", `/api/projects/${pid}/${path}`, Object.assign({ requestId: rid() }, body));
+    if (!r.ok) {
+      const box = errId && document.getElementById(errId);
+      if (box) box.textContent = errMsg(r); else alert(errMsg(r));
+      btn.disabled = false;
+      return;
+    }
+    reload();
+  };
+  const makeSb = document.getElementById("make-sb");
+  if (makeSb) makeSb.onclick = () => post(makeSb, "storyboard", {});
+  const sbChange = document.getElementById("sb-change");
+  if (sbChange) sbChange.onclick = () => {
+    const fb = document.getElementById("sb-feedback").value.trim();
+    if (!fb) { document.getElementById("sb-err").textContent = "변경 요청을 적어 주세요."; return; }
+    post(sbChange, "storyboard", { feedback: fb }, "sb-err");
+  };
+  const sbApprove = document.getElementById("sb-approve");
+  if (sbApprove) sbApprove.onclick = () =>
+    post(sbApprove, "approve", { stage: "storyboard", version: Number(sbApprove.dataset.version) }, "sb-err");
+  document.querySelectorAll(".regen").forEach((b) => { b.onclick = () => post(b, `cards/${b.dataset.no}/image`, {}); });
 
   const version = p.research && p.research.candidatesVersion;
   const saveSelection = async (confirm) => {

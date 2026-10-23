@@ -146,6 +146,30 @@ class ClaudeCliEngine:
                     "message": data.get("message") or "엔진이 오류를 알렸습니다.", "sessionId": call["sessionId"]}
         return _bad("status가 need_input/result/error가 아닙니다.", call)
 
+    def storyboard(self, ctx, emit, cancel):
+        prompt = _storyboard_prompt(ctx)
+        emit("Claude CLI 호출: 스토리보드" + (" (변경 요청 반영)" if ctx.get("storyboardFeedback") else ""))
+        call = self._call(ctx, prompt, emit, cancel)
+        if call["type"] == "error":
+            return call
+        data = call["data"]
+        if data.get("status") == "error":
+            return {"type": "error", "code": data.get("code") or "engine_error",
+                    "message": data.get("message") or "엔진이 오류를 알렸습니다.", "sessionId": call["sessionId"]}
+        sb = data.get("storyboard")
+        if data.get("status") != "result" or not isinstance(sb, dict) or not isinstance(sb.get("cards"), list):
+            return _bad("storyboard.cards가 없습니다.", call)
+        sb["mock"] = False
+        sb["costUsd"] = call["cost"]
+        return {"type": "result", "storyboard": sb, "sessionId": call["sessionId"]}
+
+    def draw_svg(self, ctx, card, style, emit, cancel):
+        """agy 대신 쓰는 도형 그림. 프로젝트 대화와 따로, 도구 없이 SVG 코드만 받는다."""
+        call = self._call_once(ctx, _svg_prompt(card, style), emit, cancel, tools=[], session=False, want="text")
+        if call["type"] == "error":
+            return call
+        return {"type": "ok", "svg": call["text"], "cost": call.get("cost")}
+
     def stop_all(self):
         with self._lock:
             procs = list(self._procs.values())
@@ -166,16 +190,24 @@ class ClaudeCliEngine:
             second["cost"] = (second.get("cost") or 0) + (call.get("cost") or 0)
         return second
 
-    def _call_once(self, ctx, prompt, emit, cancel):
+    def _call_once(self, ctx, prompt, emit, cancel, tools=ALLOWED_TOOLS, session=True, want="json"):
+        """session=False: 프로젝트 대화와 따로, 기록을 남기지 않는 한 번짜리 호출(그림 그리기용).
+        want="text": JSON 대신 답 원문을 그대로 돌려준다."""
         cwd = self.work_dir / ctx["projectId"]
         cwd.mkdir(parents=True, exist_ok=True)
         args = [self.exe, "-p", "--output-format", "stream-json", "--verbose",
-                "--model", self.model, "--effort", self.effort, "--strict-mcp-config",
-                "--allowedTools", *ALLOWED_TOOLS, "--disallowedTools", *DISALLOWED_TOOLS]
-        if ctx.get("sourcePath"):
+                "--model", self.model, "--effort", self.effort, "--strict-mcp-config"]
+        if tools:
+            args += ["--allowedTools", *tools]
+        args += ["--disallowedTools", *DISALLOWED_TOOLS, *[t for t in ALLOWED_TOOLS if t not in tools]]
+        if ctx.get("sourcePath") and tools:
             args += ["--add-dir", ctx["sourcePath"]]
         sid = ctx.get("sessionId")
-        args += ["--resume", sid] if ctx.get("sessionStarted") else ["--session-id", sid]
+        if not session:
+            args += ["--no-session-persistence"]
+            sid = ""
+        else:
+            args += ["--resume", sid] if ctx.get("sessionStarted") else ["--session-id", sid]
 
         try:
             proc = subprocess.Popen(
@@ -242,11 +274,13 @@ class ClaudeCliEngine:
         if final.get("is_error") or final.get("subtype") != "success":
             return _classify_error(text or final.get("subtype", ""), session)
         (cwd / "last_answer.txt").write_text(text, encoding="utf-8")  # 문제가 생겼을 때 원문 확인용
+        if want == "text":
+            return {"type": "ok", "text": text, "cost": final.get("total_cost_usd"), "sessionId": None, "trace": trace}
         data = _extract_json(text)
         if not isinstance(data, dict):
             return {"type": "error", "code": "invalid_output", "sessionId": session, "cost": final.get("total_cost_usd"),
                     "message": f"엔진 답변에서 약속한 JSON을 읽지 못했습니다. 완료로 처리하지 않습니다. (원문: {cwd / 'last_answer.txt'})"}
-        emit(f"Claude CLI 응답 수신 (세션 {session[:8]}…, 비용 약 ${final.get('total_cost_usd') or 0:.3f})")
+        emit(f"Claude CLI 응답 수신 (세션 {(session or '')[:8]}…, 비용 약 ${final.get('total_cost_usd') or 0:.3f})")
         return {"type": "ok", "data": data, "sessionId": session, "trace": trace,
                 "cost": final.get("total_cost_usd")}
 
@@ -423,6 +457,58 @@ source(원문 URL 또는 파일 경로), value(고를 가치), uncertainty(불�
 실패하면: ```json
 {{"status": "error", "code": "search_failed", "message": "이유"}}
 ```"""
+
+
+def _storyboard_prompt(ctx):
+    ed = json.dumps(ctx.get("editorial") or {}, ensure_ascii=False)[:6000]
+    selected = json.dumps(ctx.get("selected", []), ensure_ascii=False)[:4000]
+    feedback = ctx.get("storyboardFeedback") or []
+    prev = ctx.get("storyboard")
+    change = ""
+    if feedback and prev:
+        change = ("\n지난 스토리보드:\n" + json.dumps(prev.get("cards", []), ensure_ascii=False)[:6000]
+                  + "\n사용자 변경 요청(이것만 반영하고 나머지는 유지):\n- " + "\n- ".join(feedback))
+    return f"""너는 카드뉴스 제작 앱의 기획 담당이다. 지금은 '스토리보드' 단계다.
+(이 대화가 이어지는 경우에도 아래 정보가 최신이다.)
+
+주제: {ctx['topic']}
+편집 방향(사용자 입력): {ctx.get('direction') or '(없음)'}
+고른 후보: {selected}
+편집 판단(독자·형식·표지 문장·검증): {ed}
+{change}
+
+규칙:
+- 편집 판단의 추천 형식으로 보통 5~8장. 내용에 맞게 조정한다. 카드 크기는 1080×1350 세로.
+- 한 장에 메시지 하나. 모든 장에 같은 정보를 반복하지 않는다.
+- 표지는 편집 판단의 표지 문장 중 하나를 쓰거나 다듬는다. 마지막 카드는 요약 또는 다음 행동 + 출처.
+- 확인한 사실의 범위 안에서만 쓴다. 운영자 경험·주장은 "~라고 합니다"처럼 주장임이 보이게 쓴다. 확인하지 않은 효과·수치·순위는 넣지 않는다.
+- 공개 예정이거나 확인 못 한 것은 제목과 본문에 그 사실을 남긴다.
+- 각 카드: no, role(표지/문제/바뀐 점/활용/한계/요약·출처 등), title(18자 안팎), keyLine(핵심 문장 한 줄), body(2~3문장, 휴대폰에서 읽을 분량),
+  imageRole(그림이 맡는 역할), imagePlan(그림 장면을 구체적으로: 무엇이 어디에. 글자·로고·실제 제품 화면·실제 인물 사진처럼 보이는 것은 넣지 않는다), sources(근거 URL 또는 파일 경로 목록), note(예정·미확인 등 주의할 점, 없으면 빈 문자열).
+- 공통 그림체 style: palette(색 3~5개, #RRGGBB), illustration(그림체 한 줄), mood(분위기 한 줄), layout(제목을 올릴 여백 위치).
+
+{OUTPUT_RULE}
+```json
+{{"status": "result", "storyboard": {{"format": "", "reason": "카드 수와 순서를 이렇게 정한 이유 한 줄", "style": {{"palette": ["#1F3A5F"], "illustration": "", "mood": "", "layout": "위쪽 40%를 비워 제목 자리"}}, "cards": [{{"no": 1, "role": "표지", "title": "", "keyLine": "", "body": "", "imageRole": "", "imagePlan": "", "sources": [""], "note": ""}}]}}}}
+```"""
+
+
+def _svg_prompt(card, style):
+    palette = ", ".join(style.get("palette") or ["#1F3A5F", "#F2C14E", "#F7F7F2"])
+    return f"""카드뉴스 배경용 설명 그림을 SVG 코드로 그려라. 이 그림은 생성 이미지이며 실제 화면이나 사진처럼 보이면 안 된다.
+
+장면: {card.get('imagePlan') or card.get('imageRole') or card.get('title')}
+그림의 역할: {card.get('imageRole') or ''}
+공통 그림체: {style.get('illustration') or '단순한 평면 도형 일러스트'} / 분위기: {style.get('mood') or ''}
+색(이 색만 사용): {palette}
+
+규칙:
+- <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="1080" height="1350"> 하나.
+- 원·사각형·선·패스 같은 도형만. <text>, 글자, 숫자, 로고, <image>, <script>, 외부 링크는 넣지 않는다.
+- {style.get('layout') or '위쪽 40%(y 0~540)'}는 밝고 비어 있게 두어 제목을 올릴 자리로 남긴다. 주요 도형은 아래쪽에.
+- 배경은 전체를 칠한다. 코드는 200줄 이내.
+
+답은 ```svg 코드 블록 하나만."""
 
 
 def _editorial_prompt(ctx):

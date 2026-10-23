@@ -106,6 +106,45 @@ class MockEngine:
         }
 
 
+    def storyboard(self, ctx, emit, cancel):
+        emit("[모의] 스토리보드를 만듭니다.")
+        _wait(cancel, self.step_seconds)
+        if "storyboard" in self.fail:
+            return {"type": "error", "code": "engine_error", "message": "[모의 오류] 스토리보드를 만들지 못했습니다."}
+        fmt = (ctx.get("editorial") or {}).get("format") or "이야기형"
+        roles = ["표지", "문제", "바뀐 점", "활용", "한계", "요약·출처"]
+        feedback = ctx.get("storyboardFeedback") or []
+        cards = []
+        for i, role in enumerate(roles, start=1):
+            cards.append({
+                "no": i, "role": role,
+                "title": f"[모의] {role} 카드 제목",
+                "keyLine": f"[모의] {role} 카드의 핵심 문장",
+                "body": "[모의] 본문 예시입니다. 실제 원고가 아닙니다.",
+                "imageRole": f"[모의] {role} 상황을 보여 줌",
+                "imagePlan": f"[모의] {role}을 나타내는 단순한 도형",
+                "sources": ["[모의] 출처 예시"],
+                "note": ("변경 요청 반영: " + feedback[-1]) if feedback and i == 1 else "",
+            })
+        return {"type": "result", "sessionId": ctx.get("sessionId"), "storyboard": {
+            "mock": True, "format": fmt, "reason": "[모의] 6장 예시",
+            "style": {"palette": ["#1F3A5F", "#F2C14E", "#F7F7F2", "#E4572E"],
+                      "illustration": "[모의] 평면 도형", "mood": "차분함", "layout": "위쪽 40%를 비워 제목 자리"},
+            "cards": cards}}
+
+    def draw_svg(self, ctx, card, style, emit, cancel):
+        _wait(cancel, self.step_seconds / 2)
+        if "image" in self.fail or (card.get("no") == 2 and "image2" in self.fail):
+            return {"type": "error", "code": "image_failed", "message": "[모의 오류] 그림을 만들지 못했습니다."}
+        pal = style.get("palette") or ["#1F3A5F", "#F2C14E", "#F7F7F2"]
+        n = int(card.get("no") or 1)
+        svg = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="1080" height="1350">'
+               f'<rect width="1080" height="1350" fill="{pal[-1]}"/>'
+               f'<circle cx="{300 + n * 80}" cy="950" r="{140 + n * 10}" fill="{pal[0]}"/>'
+               f'<rect x="560" y="820" width="320" height="320" rx="40" fill="{pal[1 % len(pal)]}"/></svg>')
+        return {"type": "ok", "svg": "```svg\n" + svg + "\n```", "cost": 0}
+
+
 def _mock_candidates(source, now):
     where = "자료 폴더" if source else "웹"
     base = [
