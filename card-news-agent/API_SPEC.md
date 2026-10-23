@@ -203,6 +203,21 @@ created → researching → candidates_ready → running → waiting_for_user �
 ### 카드 렌더러 (`cardnews/render.py`)
 카드 HTML(그림은 data URI) → Chrome `--headless=new --dump-dom`으로 검사 결과를 읽고 → `--screenshot`으로 1080×1350 PNG. 별도 프로필 폴더(`data\engine-work\<프로젝트>\render\chrome-profile`)를 써서 사용자가 쓰는 Chrome과 섞이지 않음. 그림은 `object-fit: cover`로 4:5에 맞춤. 오른쪽 아래에 그림 출처 표시("AI 생성 그림 (Antigravity)" / "AI 도형 그림 (Claude CLI)").
 
+### STEP 9: 고치기·최종 승인·내보내기
+
+| 요청 | 입력 | 결과·규칙 |
+|---|---|---|
+| `POST /api/projects/{id}/revisions` | `cardIds[]`, `instruction`(500자 이내), `scope: text\|image`, `requestId` | 고른 카드만. text: 엔진이 글만 고치고 그림 그대로 다시 그림. image: 수정 요청을 붙여 그림만 새 버전 → 다시 그림. 카드마다 `revision.history` 기록 |
+| `POST /api/projects/{id}/cards/{no}/text` | (STEP 8 입력) + `sources[]` | 출처 목록도 고칠 수 있음 |
+| `POST /api/projects/{id}/cards/{no}/remove` | `requestId` | 카드 빼기, 번호 다시 매김, 그림 유지, 모든 카드 다시 그려야 함 |
+| `POST /api/projects/{id}/approve` | `stage: "final"`, `signature`, `requestId` | 화면이 본 카드 묶음 서명(`final.signature`)과 같아야 함(아니면 409 stale_version). 카드가 최신이 아니면 409 not_ready |
+| `POST /api/projects/{id}/exports` | `requestId` | 최종 승인된 묶음만(아니면 409 not_approved). ZIP: `cards/01.png…`, `출처.md`, `이미지기록.md`, `image-log.json`, `README.md`. PC 경로는 자료 폴더 기준 상대 경로로 |
+| `GET /api/projects/{id}/exports` | — | `{ finalOk, exports: [{file, bytes, at, signature, cards, current, verify}] }` |
+| `GET /api/projects/{id}/exports/{file}` | — | ZIP 내려받기(첨부). 지금 승인된 묶음과 다르면 409 |
+| `POST /api/projects/{id}/exports/{file}/verify` | — | ZIP을 직접 열어 검사. `rows: [{item, result: 통과\|실패\|확인 못 함, detail}]`, `counts` |
+
+`GET /api/projects/{id}`에 `final: { ready, reason, signature, ok, approval }`가 붙는다. 최종 승인은 서명(카드 번호·PNG 파일·글)에 묶여 있어서 카드가 하나라도 바뀌면 `ok: false`가 된다.
+
 ### `POST /api/projects/{id}/retry`
 `{ "requestId" }`. `failed / interrupted / cancelled`일 때 실패한 작업(`error.retryKind`)을 다시 시작한다. 이미 받은 후보·선택·답변은 그대로 둔다. 그림 작업이면 `done`이 아닌 카드만 다시 만든다.
 

@@ -145,6 +145,7 @@ function renderProject(p) {
     ${editorialSection(p)}
     ${storyboardSection(p)}
     ${cardsSection(p)}
+    ${finalSection(p)}
     <details id="log" ${logOpen ? "open" : ""}><summary>작업 진행 내역 (${(p.events || []).length})</summary>
       <div class="log">${(p.events || []).slice().reverse().map((e) => `<div>${esc(e.at)} — ${esc(e.message)}</div>`).join("")}</div>
     </details>
@@ -339,11 +340,12 @@ function cardText(c) {
   return { title: t.title ?? c.title, keyLine: t.keyLine ?? c.keyLine, body: t.body ?? c.body };
 }
 
-function isStale(c) {
+function isStale(c, total) {
   const r = c.render || {}, img = c.image || {};
   if (r.status !== "done") return true;
   return r.imageFile !== img.file || JSON.stringify(r.text) !== JSON.stringify(cardText(c)) ||
-    JSON.stringify(r.layout ?? null) !== JSON.stringify(c.layout ?? null);
+    JSON.stringify(r.layout ?? null) !== JSON.stringify(c.layout ?? null) ||
+    (r.pageLabel && r.pageLabel !== `${c.no} / ${total}`);
 }
 
 function issuesOf(ch) {
@@ -362,10 +364,10 @@ function cardsSection(p) {
   const cards = sb.cards;
   const ready = cards.filter((c) => (c.image || {}).status === "done");
   if (!ready.length) return "";
-  const stale = ready.filter(isStale).length;
+  const stale = ready.filter((c) => isStale(c, cards.length)).length;
   const busy = ACTIVE.has(p.status);
   const rendered = cards.filter((c) => (c.render || {}).status === "done");
-  const AUTO = { 1: "기본 크기", 2: "제목을 줄임", 3: "글자 뒤에 상자" };
+  const AUTO = { 1: "큰 글자", 2: "기본 크기", 3: "제목을 줄임", 4: "글자 뒤에 상자" };
   return `<h2>6. 카드 (글자 넣기 · 휴대폰 미리보기)</h2>
     <div class="box">
       그림 위에 제목·핵심 문장·본문을 따로 올려 1080×1350 PNG로 만듭니다. 글자를 고쳐도 그림은 다시 만들지 않습니다.
@@ -384,7 +386,7 @@ function cardsSection(p) {
           ${r.status === "done" ? (iss.length ? iss.map((x) => `<div class="note">⚠ ${esc(x)}</div>`).join("") :
             `<span class="badge">검사 통과</span>`) : r.status === "failed" ? `<div class="err">${esc(r.error)}</div>` : `<span class="muted">아직 안 만듦</span>`}
           ${r.checks && r.checks.autoFit ? `<span class="muted"> · 자동 맞춤: ${AUTO[r.checks.autoFit]}</span>` : ""}
-          ${r.status === "done" && isStale(c) ? `<span class="note"> · 그림이나 글자가 바뀌어 다시 그려야 함</span>` : ""}
+          ${r.status === "done" && isStale(c, cards.length) ? `<span class="note"> · 그림이나 글자가 바뀌어 다시 그려야 함</span>` : ""}
           ${r.status === "done" ? ` · <a href="/api/projects/${esc(p.id)}/cards/${esc(r.file)}" target="_blank">${esc(r.file)}</a>` : ""}
         </div>
         ${(c.image || {}).status === "done" ? `<details><summary>글자 고치기 (그림은 그대로)</summary>
@@ -401,9 +403,53 @@ function cardsSection(p) {
             </div>
             <div class="row"><button type="submit" ${busy ? "disabled" : ""}>글자만 저장하고 다시 그리기</button>
               <label class="muted"><input type="checkbox" name="auto" ${c.layout ? "" : "checked"}> 크기는 자동 맞춤</label></div>
-          </form></details>` : ""}
+          </form>
+          <div class="row"><button class="secondary small rm" data-no="${esc(c.no)}" ${busy || cards.length <= 3 ? "disabled" : ""}>이 카드 빼기</button>
+            <span class="muted">다른 카드와 내용을 합칠 때. 번호를 다시 매기고 그림은 그대로 둡니다.</span></div></details>` : ""}
       </div>`;
     }).join("")}</div>`;
+}
+
+function finalSection(p) {
+  const f = p.final;
+  const sb = p.storyboard;
+  if (!f || !sb || !sb.cards.some((c) => (c.render || {}).status === "done")) return "";
+  const busy = ACTIVE.has(p.status);
+  const exportsList = (p.exports || []).slice().reverse();
+  const verifyTable = (v) => !v ? "" : `<table><tr><th>검사 항목</th><th>결과</th><th>내용</th></tr>${v.rows.map((r) =>
+    `<tr><td>${esc(r.item)}</td><td>${r.result === "통과" ? "✅ 통과" : r.result === "실패" ? "❌ 실패" : "⚠ 확인 못 함"}</td><td>${esc(r.detail)}</td></tr>`).join("")}</table>`;
+  return `<h2>7. 카드 고치기 · 최종 승인 · 내려받기</h2>
+    <div class="box">
+      <b>요청문으로 카드 고치기</b> <span class="muted">— 고른 카드만 바뀝니다. 글만 고치면 그림은 그대로입니다.</span>
+      <form id="rev">
+        <div class="row">${sb.cards.map((c) => `<label><input type="checkbox" name="cards" value="${esc(c.no)}"> ${esc(c.no)}번</label>`).join(" ")}</div>
+        <textarea name="instruction" maxlength="500" placeholder="예: 3번 카드 문장이 어려워. 원장님이 바로 알아듣게 쉬운 말로 한 줄로 줄여 줘."></textarea>
+        <div class="row"><select name="scope"><option value="text">글만 고치기</option><option value="image">그림만 다시 만들기</option></select>
+          <button type="submit" ${busy ? "disabled" : ""}>고치기</button></div>
+        <div id="rev-err" class="err"></div>
+      </form>
+    </div>
+    <div class="box ${f.ok ? "ok" : ""}">
+      <b>최종 승인</b>:
+      ${f.ok ? `승인됨 (${esc(f.approval.at)}) — 이 카드 묶음으로 내려받을 수 있습니다.` :
+        f.approval ? `카드가 바뀌어 이전 승인(${esc(f.approval.at)})이 풀렸습니다. 다시 확인하고 승인해 주세요.` : "아직 승인 전입니다."}
+      ${!f.ready ? `<div class="note">⚠ ${esc(f.reason)}</div>` : ""}
+      <div class="row">
+        ${!f.ok ? `<button id="final-approve" data-sig="${esc(f.signature)}" ${busy || !f.ready ? "disabled" : ""}>카드 ${sb.cards.length}장 최종 승인</button>` : ""}
+        <button id="make-export" ${busy || !f.ok ? "disabled" : ""}>내려받을 파일 만들기 (PNG·ZIP·출처·이미지 기록)</button>
+      </div>
+      <div class="muted">최종 승인 전에는 내려받을 수 없습니다. 승인 뒤에 카드를 고치면 승인이 풀립니다.</div>
+      <div id="final-err" class="err"></div>
+    </div>
+    ${exportsList.length ? `<div class="box"><b>내보낸 파일</b>${exportsList.map((e) => {
+      const cur = f.ok && e.signature === f.signature;
+      return `<div style="margin-top:8px">${cur ? `<a href="/api/projects/${esc(p.id)}/exports/${esc(e.file)}">⬇ ${esc(e.file)}</a>` : `<s>${esc(e.file)}</s> <span class="muted">(지금 카드와 다름)</span>`}
+        <span class="muted">${Math.round(e.bytes / 1024)} KB · 카드 ${esc(e.cards)}장 · ${esc(e.at)}</span>
+        ${cur ? `<button class="secondary small verify" data-name="${esc(e.file)}" ${busy ? "disabled" : ""}>내보낸 파일 검증</button>` : ""}
+        ${verifyTable(e.verify)}</div>`;
+    }).join("")}
+      ${f.ok ? `<div class="muted" style="margin-top:8px">카드별 PNG: ${sb.cards.map((c) => `<a href="/api/projects/${esc(p.id)}/cards/${esc(c.render.file)}" download="card-${esc(c.no)}.png">${esc(c.no)}</a>`).join(" · ")}</div>` : ""}
+    </div>` : ""}`;
 }
 
 function bindProject(p) {
@@ -456,6 +502,20 @@ function bindProject(p) {
   if (sbApprove) sbApprove.onclick = () =>
     post(sbApprove, "approve", { stage: "storyboard", version: Number(sbApprove.dataset.version) }, "sb-err");
   document.querySelectorAll(".regen").forEach((b) => { b.onclick = () => post(b, `cards/${b.dataset.no}/image`, {}); });
+  document.querySelectorAll(".rm").forEach((b) => {
+    b.onclick = () => { if (confirm(`카드 ${b.dataset.no}을(를) 뺄까요? 번호가 다시 매겨집니다.`)) post(b, `cards/${b.dataset.no}/remove`, {}); };
+  });
+  const rev = document.getElementById("rev");
+  if (rev) rev.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const cardIds = [...rev.querySelectorAll("input[name=cards]:checked")].map((x) => Number(x.value));
+    post(rev.querySelector("button"), "revisions", { cardIds, instruction: rev.elements.instruction.value, scope: rev.elements.scope.value }, "rev-err");
+  });
+  const fa = document.getElementById("final-approve");
+  if (fa) fa.onclick = () => post(fa, "approve", { stage: "final", signature: fa.dataset.sig }, "final-err");
+  const mx = document.getElementById("make-export");
+  if (mx) mx.onclick = () => post(mx, "exports", {}, "final-err");
+  document.querySelectorAll(".verify").forEach((b) => { b.onclick = () => post(b, `exports/${b.dataset.name}/verify`, {}); });
   const renderBtn = document.getElementById("render");
   if (renderBtn) renderBtn.onclick = () => post(renderBtn, "render", {});
   document.querySelectorAll("form.txt").forEach((f) => f.addEventListener("submit", (e) => {

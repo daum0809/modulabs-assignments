@@ -10,6 +10,7 @@ from pathlib import Path
 from .engines import ENGINES, make_engine
 from .images import ImageMaker
 from .render import Renderer
+from .revise import Reviser
 from .jobs import Runner
 from .server import App, serve
 from .store import Store
@@ -65,7 +66,7 @@ def main(argv=None):
     interrupted = store.mark_interrupted()
     images = ImageMaker(store, engine, use_agy=args.engine != "mock" and not args.no_agy)
     renderer = Renderer(store)
-    runner = Runner(store, engine, images, renderer)
+    runner = Runner(store, engine, images, renderer, Reviser(store, engine, images, renderer))
     app = App(store, runner, engine.name, status)
 
     try:

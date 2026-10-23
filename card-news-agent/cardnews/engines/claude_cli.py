@@ -163,6 +163,18 @@ class ClaudeCliEngine:
         sb["costUsd"] = call["cost"]
         return {"type": "result", "storyboard": sb, "sessionId": call["sessionId"]}
 
+    def revise_text(self, ctx, card, text, instruction, emit, cancel):
+        """카드 한 장의 글만 요청대로 고친다. 프로젝트 대화와 따로, 도구 없이."""
+        call = self._call_once(ctx, _revise_prompt(card, text, instruction, ctx), emit, cancel,
+                               tools=[], session=False)
+        if call["type"] == "error":
+            return call
+        data = call["data"]
+        if not all(isinstance(data.get(k), str) for k in ("title", "keyLine", "body")):
+            return {"type": "error", "code": "invalid_output", "message": "고친 글에 title/keyLine/body가 없습니다."}
+        return {"type": "ok", "text": {k: data[k].strip() for k in ("title", "keyLine", "body")},
+                "note": str(data.get("note") or ""), "cost": call.get("cost")}
+
     def draw_svg(self, ctx, card, style, emit, cancel):
         """agy 대신 쓰는 도형 그림. 프로젝트 대화와 따로, 도구 없이 SVG 코드만 받는다."""
         call = self._call_once(ctx, _svg_prompt(card, style), emit, cancel, tools=[], session=False, want="text")
@@ -493,11 +505,36 @@ def _storyboard_prompt(ctx):
 ```"""
 
 
+def _revise_prompt(card, text, instruction, ctx):
+    ed = ctx.get("editorial") or {}
+    facts = json.dumps((ed.get("verification") or {}), ensure_ascii=False)[:4000]
+    return f"""카드뉴스 카드 한 장의 글을 사용자 요청대로 고쳐라.
+
+카드 {card['no']} ({card.get('role', '')})
+지금 글: {json.dumps(text, ensure_ascii=False)}
+이 카드의 출처: {json.dumps(card.get('sources', []), ensure_ascii=False)}
+독자: {ed.get('audience') or ''}
+확인한 사실·주장·미확인(참고): {facts}
+
+사용자 요청: {instruction}
+
+규칙:
+- 요청한 것만 바꾸고 나머지 뜻은 유지한다. 확인하지 않은 효과·수치·기능을 새로 넣지 않는다.
+- 운영 경험이나 주장은 사실처럼 바꾸지 않는다(예: "(운영 경험)" 표시 유지).
+- 소비자가 휴대폰에서 읽기 쉽게 짧게. 제목 20자 안팎, 핵심 문장 한 줄. 프로그램 내부 구현(로그인 방식·비밀번호·저장 방식·코드)은 쓰지 않는다.
+- 본문이 필요 없으면 빈 문자열.
+
+{OUTPUT_RULE}
+```json
+{{"title": "", "keyLine": "", "body": "", "note": "무엇을 바꿨는지 한 줄"}}
+```"""
+
+
 def _svg_prompt(card, style):
     palette = ", ".join(style.get("palette") or ["#1F3A5F", "#F2C14E", "#F7F7F2"])
     return f"""카드뉴스 배경용 설명 그림을 SVG 코드로 그려라. 이 그림은 생성 이미지이며 실제 화면이나 사진처럼 보이면 안 된다.
 
-장면: {card.get('imagePlan') or card.get('imageRole') or card.get('title')}
+장면: {card.get('imagePlan') or card.get('imageRole') or card.get('title')}{(' / 수정 요청: ' + card['imageNote']) if card.get('imageNote') else ''}
 그림의 역할: {card.get('imageRole') or ''}
 공통 그림체: {style.get('illustration') or '단순한 평면 도형 일러스트'} / 분위기: {style.get('mood') or ''}
 색(이 색만 사용): {palette}

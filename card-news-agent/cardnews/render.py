@@ -29,6 +29,7 @@ TOOL_NOTE = {"agy": "AI 생성 그림 (Antigravity)", "claude-cli-svg": "AI 도�
 DEFAULT_LAYOUT = {"titleSize": 68, "keySize": 40, "bodySize": 36, "color": "dark", "box": False}
 # 사용자가 글자 모양을 정하지 않았을 때 차례로 시도한다. 검사를 통과하는 첫 번째를 쓴다.
 AUTO_LAYOUTS = [
+    dict(DEFAULT_LAYOUT, titleSize=88, keySize=48, bodySize=38),  # 글이 짧으면 크게
     DEFAULT_LAYOUT,
     dict(DEFAULT_LAYOUT, titleSize=58, keySize=36),
     dict(DEFAULT_LAYOUT, titleSize=58, keySize=36, box=True),
@@ -130,7 +131,7 @@ p {{ font-size: {lay['bodySize']}px; line-height: 1.55; margin: 0 0 8px; word-br
 .foot {{ position: absolute; right: 36px; bottom: 28px; font-size: 22px; color: #fff; background: rgba(0,0,0,.38); padding: 6px 14px; border-radius: 99px; }}
 </style></head><body><div class="card">
 <img id="bg" src="{image_src}" alt="">
-<div class="text"><div class="no">{card['no']} / {total}</div><h1>{html.escape(t['title'])}</h1>
+<div class="text"><div class="no">{page_label(card, total)}</div><h1>{html.escape(t['title'])}</h1>
 <div class="key">{html.escape(t['keyLine'])}</div>{body}</div>
 <div class="foot">{html.escape(TOOL_NOTE.get(tool, "생성 그림"))}</div>
 </div>{script}</body></html>"""
@@ -201,7 +202,7 @@ class Renderer:
         return {"status": "done", "version": version, "file": out.name, "format": info["format"],
                 "width": info["width"], "height": info["height"], "checks": checks,
                 "imageFile": img["file"], "text": card_text(card), "layout": card.get("layout"), "usedLayout": lay,
-                "at": now_iso()}
+                "pageLabel": page_label(card, total), "at": now_iso()}
 
     def _chrome(self, work, *args):
         base = [self.chrome, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-first-run",
@@ -249,10 +250,15 @@ def check_issues(checks):
     return issues
 
 
-def render_stale(card):
-    """그림이나 글자가 바뀌어 다시 그려야 하는지."""
+def render_stale(card, total):
+    """그림·글자·글자 모양·페이지 번호가 바뀌어 다시 그려야 하는지."""
     r = card.get("render") or {}
     img = card.get("image") or {}
     if r.get("status") != "done":
         return True
-    return r.get("imageFile") != img.get("file") or r.get("text") != card_text(card) or r.get("layout") != card.get("layout")
+    return (r.get("imageFile") != img.get("file") or r.get("text") != card_text(card)
+            or r.get("layout") != card.get("layout") or r.get("pageLabel", page_label(card, total)) != page_label(card, total))
+
+
+def page_label(card, total):
+    return f"{card['no']} / {total}"

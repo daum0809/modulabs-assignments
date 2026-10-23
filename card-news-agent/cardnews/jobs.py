@@ -12,16 +12,17 @@ RESULT_TYPES = {"need_input", "result", "error"}
 
 
 class Runner:
-    def __init__(self, store, engine, images=None, renderer=None):
+    def __init__(self, store, engine, images=None, renderer=None, reviser=None):
         self.store = store
         self.engine = engine
         self.images = images  # 그림 작업자 (ImageMaker)
         self.renderer = renderer  # 카드 렌더러 (글자 + 그림 → PNG)
+        self.reviser = reviser  # 요청문으로 카드 고치기
         self._cancels = {}
 
     # --- 문서 수정 (store.update 안에서 호출) ---
 
-    def prepare(self, doc, kind, status, cards=None):
+    def prepare(self, doc, kind, status, cards=None, **extra):
         """새 작업 기록을 doc에 만든다. 실제 실행은 저장 후 launch()로 시작한다.
         cards: 그림 작업에서 만들 카드 번호 목록."""
         run = {
@@ -34,6 +35,7 @@ class Runner:
         }
         if cards is not None:
             run["cards"] = list(cards)
+        run.update(extra)  # 예: 고치기 작업의 instruction, scope
         doc.setdefault("runs", []).append(run)
         doc["currentRunId"] = run["id"]
         doc["status"] = status
@@ -62,9 +64,9 @@ class Runner:
 
         try:
             doc = self.store.get(project_id)
-            if kind in ("images", "render"):
+            if kind in ("images", "render", "revise"):
                 cards = find_run(doc, run_id).get("cards") or []
-                worker = self.images if kind == "images" else self.renderer
+                worker = {"images": self.images, "render": self.renderer, "revise": self.reviser}[kind]
                 out = worker.run(project_id, run_id, cards, emit, cancel)
             else:
                 out = getattr(self.engine, kind)(_context(doc), emit, cancel)
@@ -133,6 +135,8 @@ def _invalid(out, kind):
         return None if isinstance(out.get("images"), dict) else "그림 작업 결과가 없습니다."
     if kind == "render":
         return None if isinstance(out.get("render"), dict) else "카드 만들기 결과가 없습니다."
+    if kind == "revise":
+        return None if isinstance(out.get("revise"), dict) else "카드 고치기 결과가 없습니다."
     if not isinstance(out.get("editorial"), dict):
         return "편집 결과에 editorial이 없습니다."
     return None
@@ -206,6 +210,10 @@ def _apply(doc, run_id, kind, out, new_session):
         summary = out["render"]
         doc["status"] = "cards_ready"
         add_event(doc, f"카드 만들기 끝: 완성 {summary['made']}장 (검사 경고 {summary['warned']}장), 실패 {summary['failed']}장")
+    elif kind == "revise":
+        summary = out["revise"]
+        doc["status"] = "cards_ready"
+        add_event(doc, f"카드 고치기 끝({'글' if summary['scope'] == 'text' else '그림'}): 완료 {summary['done']}장, 실패 {summary['failed']}장")
     else:
         doc["editorial"] = out["editorial"]
         doc["status"] = "editorial_ready"

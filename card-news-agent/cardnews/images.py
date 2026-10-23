@@ -215,7 +215,8 @@ class ImageMaker:
 
 def image_prompt(card, style):
     palette = ", ".join(style.get("palette") or [])
-    return (f"장면: {card.get('imagePlan') or card.get('title')}. 역할: {card.get('imageRole') or ''}. "
+    fix = f" 수정 요청: {card['imageNote']}." if card.get("imageNote") else ""
+    return (f"장면: {card.get('imagePlan') or card.get('title')}.{fix} 역할: {card.get('imageRole') or ''}. "
             f"그림체: {style.get('illustration') or '단순한 평면 일러스트'}, 분위기: {style.get('mood') or ''}, 색: {palette}. "
             f"세로 4:5 구도, {style.get('layout') or '위쪽 40%는 제목을 올릴 빈 여백'}. "
             "이미지 안에 글자·숫자·로고 없음. 실제 제품 화면이나 실제 사진처럼 보이지 않게.")

@@ -6,6 +6,7 @@ import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from .exports import build_zip, final_ok, ready_for_final, signature, verify_zip
 from .render import card_text as card_text_of
 from .render import render_stale
 from .store import ACTIVE_STATUSES, NotFound, add_event, find_run, new_id, now_iso
@@ -44,9 +45,10 @@ IMAGE_TYPES = {".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg
 
 
 class FileResponse:
-    def __init__(self, path, ctype):
+    def __init__(self, path, ctype, download=None):
         self.path = path
         self.ctype = ctype
+        self.download = download  # 있으면 내려받기 파일 이름
 
 
 class ApiError(Exception):
@@ -296,8 +298,10 @@ class App:
         stage = body.get("stage")
         version = body.get("version")
         payload = {"stage": stage, "version": version}
+        if stage == "final":
+            return self._approve_final(project_id, rid, body.get("signature"))
         if stage != "storyboard":
-            raise ApiError(400, "bad_request", "지금은 stage=storyboard 승인만 있습니다(최종 승인은 다음 단계).")
+            raise ApiError(400, "bad_request", "stage는 storyboard 또는 final입니다.")
 
         def fn(doc):
             replay = check_request(doc, rid, "approve", payload)
@@ -348,21 +352,124 @@ class App:
         rid = body.get("requestId")
 
         def fn(doc):
-            replay = check_request(doc, rid, "render", {})
+            replay = check_request(doc, rid, "render", {"all": bool(body.get("all"))})
             if replay is not None:
                 return replay, None
             sb = doc.get("storyboard") or {}
             if not sb.get("approved") or doc["status"] in ACTIVE_STATUSES:
                 raise ApiError(409, "invalid_state", "그림이 만들어진 뒤, 다른 작업이 없을 때 카드를 만들 수 있습니다.")
-            todo = [c["no"] for c in sb["cards"] if (c.get("image") or {}).get("status") == "done" and render_stale(c)]
+            todo = [c["no"] for c in sb["cards"] if (c.get("image") or {}).get("status") == "done"
+                    and (body.get("all") or render_stale(c, len(sb["cards"])))]
             if not todo:
                 resp = {"runId": None, "status": doc["status"], "nothingToDo": True}
-                remember(doc, rid, "render", {}, resp)
+                remember(doc, rid, "render", {"all": bool(body.get("all"))}, resp)
                 return resp, None
             run = self.runner.prepare(doc, "render", "running", cards=todo)
             resp = {"runId": run["id"], "status": doc["status"], "cards": todo}
-            remember(doc, rid, "render", {}, resp)
+            remember(doc, rid, "render", {"all": bool(body.get("all"))}, resp)
             return resp, run
+
+        return self._update(project_id, fn)
+
+    def _approve_final(self, project_id, rid, sig):
+        """최종 승인: 지금 화면에 보이는 카드 묶음(signature)에 대해 저장한다. 카드가 바뀌면 자동으로 풀린다."""
+
+        def fn(doc):
+            replay = check_request(doc, rid, "approve_final", {"signature": sig})
+            if replay is not None:
+                return replay, None
+            if doc["status"] in ACTIVE_STATUSES:
+                raise ApiError(409, "invalid_state", "작업이 진행 중입니다.")
+            ok, why = ready_for_final(doc)
+            if not ok:
+                raise ApiError(409, "not_ready", why)
+            if sig != signature(doc):
+                raise ApiError(409, "stale_version", "카드가 바뀌었습니다. 새로 불러와 다시 확인해 주세요.")
+            doc["finalApproval"] = {"at": now_iso(), "signature": sig}
+            add_event(doc, f"최종 승인 (카드 {len(doc['storyboard']['cards'])}장, 서명 {sig})")
+            resp = {"finalApproval": doc["finalApproval"]}
+            remember(doc, rid, "approve_final", {"signature": sig}, resp)
+            return resp, None
+
+        return self._update(project_id, fn)
+
+    def revisions(self, project_id, body):
+        """요청문으로 카드 고치기. 고른 카드만, 글만(text) 또는 그림만(image)."""
+        rid = body.get("requestId")
+        ids = body.get("cardIds")
+        instruction = str(body.get("instruction") or "").strip()
+        scope = body.get("scope", "text")
+        payload = {"cardIds": ids, "instruction": instruction, "scope": scope}
+        if not isinstance(ids, list) or not ids or not all(isinstance(i, int) for i in ids):
+            raise ApiError(400, "bad_request", "고칠 카드 번호를 하나 이상 골라 주세요.")
+        if not instruction or len(instruction) > 500:
+            raise ApiError(400, "bad_request", "요청문을 500자 이내로 적어 주세요.")
+        if scope not in ("text", "image"):
+            raise ApiError(400, "bad_request", "scope는 text 또는 image입니다.")
+
+        def fn(doc):
+            replay = check_request(doc, rid, "revisions", payload)
+            if replay is not None:
+                return replay, None
+            sb = doc.get("storyboard") or {}
+            if not sb.get("approved") or doc["status"] in ACTIVE_STATUSES:
+                raise ApiError(409, "invalid_state", "카드가 만들어진 뒤, 다른 작업이 없을 때 고칠 수 있습니다.")
+            known = {c["no"]: c for c in sb["cards"]}
+            if any(i not in known or (known[i].get("image") or {}).get("status") != "done" for i in ids):
+                raise ApiError(400, "bad_request", "없거나 그림이 없는 카드가 있습니다.")
+            add_event(doc, f"카드 고치기 요청({scope}) 카드 {ids}: {instruction[:80]}")
+            run = self.runner.prepare(doc, "revise", "running", cards=sorted(set(ids)), instruction=instruction, scope=scope)
+            resp = {"runId": run["id"], "status": doc["status"]}
+            remember(doc, rid, "revisions", payload, resp)
+            return resp, run
+
+        return self._update(project_id, fn)
+
+    def create_export(self, project_id, body):
+        rid = body.get("requestId")
+
+        def fn(doc):
+            replay = check_request(doc, rid, "export", {})
+            if replay is not None:
+                return replay, None
+            if not final_ok(doc):
+                raise ApiError(409, "not_approved", "최종 승인된 카드만 내보낼 수 있습니다. 카드를 확인하고 최종 승인해 주세요.")
+            entry = build_zip(doc, self.store.data_dir)
+            doc.setdefault("exports", []).append(entry)
+            add_event(doc, f"내보내기: {entry['file']} ({entry['bytes'] // 1024} KB)")
+            remember(doc, rid, "export", {}, entry)
+            return entry, None
+
+        return self._update(project_id, fn)
+
+    def list_exports(self, project_id):
+        doc = self._get(project_id)
+        cur = signature(doc) if final_ok(doc) else None
+        return {"finalOk": final_ok(doc), "exports": [dict(e, current=e.get("signature") == cur) for e in doc.get("exports", [])]}
+
+    def export_file(self, project_id, name):
+        doc = self._get(project_id)
+        entry = next((e for e in doc.get("exports", []) if e["file"] == name), None)
+        path = self.store.data_dir / "projects" / project_id / "exports" / name
+        if entry is None or not path.is_file():
+            raise ApiError(404, "not_found", "내보낸 파일이 없습니다.")
+        if not final_ok(doc) or entry.get("signature") != signature(doc):
+            raise ApiError(409, "not_approved", "이 파일은 지금 최종 승인된 카드와 다릅니다. 다시 승인하고 내보내 주세요.")
+        return FileResponse(path, "application/zip", download=name)
+
+    def verify_export(self, project_id, name, body):
+        doc = self._get(project_id)
+        if not any(e["file"] == name for e in doc.get("exports", [])):
+            raise ApiError(404, "not_found", "내보낸 파일이 없습니다.")
+        rows = verify_zip(doc, self.store.data_dir, name)
+
+        def fn(d):
+            for e in d.get("exports", []):
+                if e["file"] == name:
+                    e["verify"] = {"at": now_iso(), "rows": rows}
+            counts = {k: sum(r["result"] == k for r in rows) for k in ("통과", "실패", "확인 못 함")}
+            add_event(d, f"내보낸 파일 검증 {name}: 통과 {counts['통과']} · 실패 {counts['실패']} · 확인 못 함 {counts['확인 못 함']}")
+            return {"rows": rows, "counts": counts}, None
 
         return self._update(project_id, fn)
 
@@ -373,6 +480,11 @@ class App:
         fields = {k: body.get(k) for k in ("title", "keyLine", "body")}
         layout = body.get("layout")
         payload = {"no": no, **fields, "layout": layout}
+        sources = body.get("sources")
+        if sources is not None:
+            if not isinstance(sources, list) or len(sources) > 10 or not all(isinstance(s, str) and 0 < len(s) <= 300 for s in sources):
+                raise ApiError(400, "bad_request", "sources는 300자 이하 글 10개 이내 목록이어야 합니다.")
+            payload["sources"] = sources
         limits = {"title": 80, "keyLine": 200, "body": 600}
         for k, v in fields.items():
             if v is not None and (not isinstance(v, str) or len(v) > limits[k]):
@@ -395,6 +507,8 @@ class App:
             text = dict(card_text_of(card))
             text.update({k: v.strip() for k, v in fields.items() if v is not None})
             card["text"] = text
+            if sources is not None:
+                card["sources"] = sources
             if "layout" in body:
                 if layout is None:
                     card.pop("layout", None)  # 자동 맞춤으로 되돌리기
@@ -405,6 +519,37 @@ class App:
             resp = {"runId": run["id"], "status": doc["status"]}
             remember(doc, rid, "card_text", payload, resp)
             return resp, run
+
+        return self._update(project_id, fn)
+
+    def remove_card(self, project_id, no, body):
+        """카드 한 장을 뺀다(다른 카드와 합칠 때). 번호를 다시 매기고, 그림은 그대로 둔다.
+        페이지 번호가 바뀌므로 모든 카드는 다시 그려야 하는 상태가 된다."""
+        rid = body.get("requestId")
+        no = int(no)
+
+        def fn(doc):
+            replay = check_request(doc, rid, "remove_card", {"no": no})
+            if replay is not None:
+                return replay, None
+            sb = doc.get("storyboard") or {}
+            if not sb.get("approved") or doc["status"] in ACTIVE_STATUSES:
+                raise ApiError(409, "invalid_state", "스토리보드 승인 뒤, 다른 작업이 없을 때 뺄 수 있습니다.")
+            if len(sb["cards"]) <= 3:
+                raise ApiError(409, "invalid_state", "카드는 3장 이상이어야 합니다.")
+            card = next((c for c in sb["cards"] if c["no"] == no), None)
+            if card is None:
+                raise ApiError(404, "not_found", "없는 카드입니다.")
+            sb["cards"] = [c for c in sb["cards"] if c["no"] != no]
+            for i, c in enumerate(sb["cards"], start=1):
+                c["no"] = i
+            sb.setdefault("edits", []).append({"at": now_iso(), "action": "remove", "no": no, "title": card.get("title")})
+            sb["version"] = int(sb.get("version") or 0) + 1
+            sb["approved"] = dict(sb["approved"], version=sb["version"], note=f"카드 {no} 빼기 (그림은 그대로)")
+            add_event(doc, f"카드 {no} '{card.get('title')}'를 뺐습니다. 남은 카드 {len(sb['cards'])}장, 번호를 다시 매김")
+            resp = {"cards": len(sb["cards"]), "version": sb["version"], "status": doc["status"]}
+            remember(doc, rid, "remove_card", {"no": no}, resp)
+            return resp, None
 
         return self._update(project_id, fn)
 
@@ -441,7 +586,7 @@ class App:
                 cards = [c["no"] for c in doc["storyboard"]["cards"] if (c.get("image") or {}).get("status") != "done"]
             elif kind == "render":  # 아직 못 그린 카드만 다시
                 cards = [c["no"] for c in doc["storyboard"]["cards"]
-                         if (c.get("image") or {}).get("status") == "done" and render_stale(c)]
+                         if (c.get("image") or {}).get("status") == "done" and render_stale(c, len(doc["storyboard"]["cards"]))]
             run = self.runner.prepare(doc, kind, "researching" if kind == "research" else "running", cards=cards)
             resp = {"runId": run["id"], "status": doc["status"]}
             remember(doc, rid, "retry", {}, resp)
@@ -501,6 +646,10 @@ def _digest(kind, payload):
 def public_view(doc):
     view = {k: v for k, v in doc.items() if k != "requests"}
     view["activeRun"] = find_run(doc, doc.get("currentRunId"))
+    if (doc.get("storyboard") or {}).get("cards"):
+        ready, why = ready_for_final(doc)
+        view["final"] = {"ready": ready, "reason": why, "signature": signature(doc), "ok": final_ok(doc),
+                         "approval": doc.get("finalApproval")}
     return view
 
 
@@ -518,6 +667,12 @@ ROUTES = [
     ("POST", r"/api/projects/(?P<pid>prj_\w+)/cards/(?P<no>\d{1,2})/image", "card_image"),
     ("POST", r"/api/projects/(?P<pid>prj_\w+)/render", "render"),
     ("POST", r"/api/projects/(?P<pid>prj_\w+)/cards/(?P<no>\d{1,2})/text", "card_text"),
+    ("POST", r"/api/projects/(?P<pid>prj_\w+)/cards/(?P<no>\d{1,2})/remove", "remove_card"),
+    ("POST", r"/api/projects/(?P<pid>prj_\w+)/revisions", "revisions"),
+    ("POST", r"/api/projects/(?P<pid>prj_\w+)/exports", "create_export"),
+    ("GET", r"/api/projects/(?P<pid>prj_\w+)/exports", "list_exports"),
+    ("GET", r"/api/projects/(?P<pid>prj_\w+)/exports/(?P<name>cardnews-\d{8}-\d{6}\.zip)", "export_file"),
+    ("POST", r"/api/projects/(?P<pid>prj_\w+)/exports/(?P<name>cardnews-\d{8}-\d{6}\.zip)/verify", "verify_export"),
     ("GET", r"/api/projects/(?P<pid>prj_\w+)/cards/(?P<name>card-\d{2}-r\d+\.png)", "card_file"),
     ("GET", r"/api/projects/(?P<pid>prj_\w+)/images/(?P<name>card-\d{2}-v\d+\.(?:svg|png|jpg|jpeg|webp))", "image_file"),
     ("POST", r"/api/runs/(?P<rid>run_\w+)/cancel", "cancel_run"),
@@ -554,7 +709,7 @@ def make_handler(app):
                             args.append(self._body())
                         result = getattr(app, name)(*args)
                         if isinstance(result, FileResponse):
-                            self._send(200, result.path.read_bytes(), result.ctype)
+                            self._send(200, result.path.read_bytes(), result.ctype, result.download)
                             return
                         status = 201 if name == "create_project" else 200
                         self._json(status, result)
@@ -582,10 +737,12 @@ def make_handler(app):
         def _json(self, status, obj):
             self._send(status, json.dumps(obj, ensure_ascii=False).encode("utf-8"), "application/json; charset=utf-8")
 
-        def _send(self, status, data, ctype):
+        def _send(self, status, data, ctype, download=None):
             self.send_response(status)
             self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(data)))
+            if download:
+                self.send_header("Content-Disposition", f'attachment; filename="{download}"')
             self.send_header("Cache-Control", "no-store")
             self.end_headers()
             self.wfile.write(data)

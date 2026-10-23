@@ -132,6 +132,12 @@ class MockEngine:
                       "illustration": "[모의] 평면 도형", "mood": "차분함", "layout": "위쪽 40%를 비워 제목 자리"},
             "cards": cards}}
 
+    def revise_text(self, ctx, card, text, instruction, emit, cancel):
+        _wait(cancel, self.step_seconds / 2)
+        if "revise" in self.fail:
+            return {"type": "error", "code": "engine_error", "message": "[모의 오류] 글을 고치지 못했습니다."}
+        return {"type": "ok", "text": dict(text, body=f"[모의 수정] {instruction[:40]}"), "note": "[모의] 본문 교체", "cost": 0}
+
     def draw_svg(self, ctx, card, style, emit, cancel):
         _wait(cancel, self.step_seconds / 2)
         if "image" in self.fail or (card.get("no") == 2 and "image2" in self.fail):
