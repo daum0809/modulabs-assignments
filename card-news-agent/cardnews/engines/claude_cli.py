@@ -18,6 +18,7 @@ import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from ..rules import WRITING_RULES
 from .mock import Cancelled
 
 ALLOWED_TOOLS = ["WebSearch", "WebFetch", "Read", "Glob", "Grep"]
@@ -501,14 +502,16 @@ def _storyboard_prompt(ctx):
 {change}
 
 규칙:
-- 편집 판단의 추천 형식으로 보통 5~8장. 내용에 맞게 조정한다. 카드 크기는 1080×1350 세로.
+- 편집 판단의 추천 형식으로 보통 5~6장(내용이 많을 때만 8장까지). 내용에 맞게 조정한다. 카드 크기는 1080×1350 세로.
 - 한 장에 메시지 하나. 모든 장에 같은 정보를 반복하지 않는다.
 - 표지는 편집 판단의 표지 문장 중 하나를 쓰거나 다듬는다. 마지막 카드는 요약 또는 다음 행동 + 출처.
 - 확인한 사실의 범위 안에서만 쓴다. 운영자 경험·주장은 "~라고 합니다"처럼 주장임이 보이게 쓴다. 확인하지 않은 효과·수치·순위는 넣지 않는다.
 - 공개 예정이거나 확인 못 한 것은 제목과 본문에 그 사실을 남긴다.
-- 각 카드: no, role(표지/문제/바뀐 점/활용/한계/요약·출처 등), title(18자 안팎), keyLine(핵심 문장 한 줄), body(2~3문장, 휴대폰에서 읽을 분량),
+- 각 카드: no, role(표지/문제/바뀐 점/활용/한계/요약·출처 등), title(아래 글 규칙), keyLine(핵심 문장 한 줄), body(비워 두거나 한 문장),
   imageRole(그림이 맡는 역할), imagePlan(그림 장면을 구체적으로: 무엇이 어디에. 글자·로고·실제 제품 화면·실제 인물 사진처럼 보이는 것은 넣지 않는다), sources(근거 URL 또는 파일 경로 목록), note(예정·미확인 등 주의할 점, 없으면 빈 문자열).
 - 공통 그림체 style: palette(색 3~5개, #RRGGBB), illustration(그림체 한 줄), mood(분위기 한 줄), layout(제목을 올릴 여백 위치).
+
+{WRITING_RULES}
 
 {OUTPUT_RULE}
 ```json
@@ -605,8 +608,9 @@ def _revise_prompt(card, text, instruction, ctx):
 규칙:
 - 요청한 것만 바꾸고 나머지 뜻은 유지한다. 확인하지 않은 효과·수치·기능을 새로 넣지 않는다.
 - 운영 경험이나 주장은 사실처럼 바꾸지 않는다(예: "(운영 경험)" 표시 유지).
-- 소비자가 휴대폰에서 읽기 쉽게 짧게. 제목 20자 안팎, 핵심 문장 한 줄. 프로그램 내부 구현(로그인 방식·비밀번호·저장 방식·코드)은 쓰지 않는다.
 - 본문이 필요 없으면 빈 문자열.
+
+{WRITING_RULES}
 
 {OUTPUT_RULE}
 ```json

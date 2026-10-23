@@ -9,6 +9,7 @@ from pathlib import Path
 from .exports import build_zip, final_ok, ready_for_final, signature, verify_zip
 from .render import card_text as card_text_of
 from .render import render_stale
+from .rules import text_warnings
 from .store import ACTIVE_STATUSES, NotFound, add_event, find_run, new_id, now_iso
 
 
@@ -705,6 +706,9 @@ def public_view(doc):
         ready, why = ready_for_final(doc)
         view["final"] = {"ready": ready, "reason": why, "signature": signature(doc), "ok": final_ok(doc),
                          "approval": doc.get("finalApproval")}
+        # 글 규칙(짧은 글·프로그램 내부 비공개) 검사. 막지 않고 화면에 ⚠로 알린다.
+        view["textRules"] = {str(c["no"]): text_warnings(card_text_of(c), doc.get("direction") or "")
+                             for c in doc["storyboard"]["cards"]}
     return view
 
 

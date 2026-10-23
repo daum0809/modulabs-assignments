@@ -210,12 +210,12 @@ created → researching → candidates_ready → running → waiting_for_user �
 | `POST /api/projects/{id}/cards/{no}/text` | (STEP 8 입력) + `sources[]` | 출처 목록도 고칠 수 있음 |
 | `POST /api/projects/{id}/cards/{no}/remove` | `requestId` | 카드 빼기, 번호 다시 매김, 그림 유지, 모든 카드 다시 그려야 함 |
 | `POST /api/projects/{id}/approve` | `stage: "final"`, `signature`, `requestId` | 화면이 본 카드 묶음 서명(`final.signature`)과 같아야 함(아니면 409 stale_version). 카드가 최신이 아니면 409 not_ready |
-| `POST /api/projects/{id}/exports` | `requestId` | 최종 승인된 묶음만(아니면 409 not_approved). ZIP: `cards/01.png…`, `출처.md`, `이미지기록.md`, `image-log.json`, `README.md`. PC 경로는 자료 폴더 기준 상대 경로로 |
+| `POST /api/projects/{id}/exports` | `requestId` | 최종 승인된 묶음만(아니면 409 not_approved). ZIP: `cards/01.png…`, `출처.md`, `이미지기록.md`, `image-log.json`, `Canva용 글.md`(카드별 글 — PNG는 초안, 디자인은 Canva에서 마무리), `README.md`. PC 경로는 자료 폴더 기준 상대 경로로 |
 | `GET /api/projects/{id}/exports` | — | `{ finalOk, exports: [{file, bytes, at, signature, cards, current, verify}] }` |
 | `GET /api/projects/{id}/exports/{file}` | — | ZIP 내려받기(첨부). 지금 승인된 묶음과 다르면 409 |
 | `POST /api/projects/{id}/exports/{file}/verify` | — | ZIP을 직접 열어 검사. `rows: [{item, result: 통과\|실패\|확인 못 함, detail}]`, `counts` |
 
-`GET /api/projects/{id}`에 `final: { ready, reason, signature, ok, approval }`가 붙는다. 최종 승인은 서명(카드 번호·PNG 파일·글)에 묶여 있어서 카드가 하나라도 바뀌면 `ok: false`가 된다.
+`GET /api/projects/{id}`에 `final: { ready, reason, signature, ok, approval }`와 `textRules: { "카드 번호": [글 규칙 경고…] }`가 붙는다. `textRules`는 짧은 글·프로그램 내부 비공개 규칙(`cardnews/rules.py`)을 어긴 곳이며 막지 않고 화면에 ⚠로만 보여 준다. 최종 승인은 서명(카드 번호·PNG 파일·글)에 묶여 있어서 카드가 하나라도 바뀌면 `ok: false`가 된다.
 
 ### STEP 13: 사장님 도입 체크리스트
 

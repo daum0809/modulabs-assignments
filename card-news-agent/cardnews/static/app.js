@@ -358,8 +358,14 @@ function sbCard(p, c, approved) {
       <div>${esc(c.body)}</div>
       <dl><dt>그림 역할</dt><dd>${esc(c.imageRole)}</dd><dt>그림 계획</dt><dd>${esc(c.imagePlan)}</dd>
         <dt>출처</dt><dd>${(c.sources || []).map(srcLink).join("<br>")}</dd></dl>
-      ${c.note ? `<div class="note">⚠ ${esc(c.note)}</div>` : ""}</div>
+      ${c.note ? `<div class="note">⚠ ${esc(c.note)}</div>` : ""}
+      ${ruleNotes(p, c)}</div>
   </div>`;
+}
+
+// 글 규칙(짧은 글·프로그램 내부 비공개) 검사 결과. 서버가 textRules로 보낸다.
+function ruleNotes(p, c) {
+  return ((p.textRules || {})[String(c.no)] || []).map((x) => `<div class="note">⚠ 글 규칙: ${esc(x)}</div>`).join("");
 }
 
 function cardText(c) {
@@ -412,6 +418,7 @@ function cardsSection(p) {
         <div><b>#${esc(c.no)} ${esc(t.title)}</b>
           ${r.status === "done" ? (iss.length ? iss.map((x) => `<div class="note">⚠ ${esc(x)}</div>`).join("") :
             `<span class="badge">검사 통과</span>`) : r.status === "failed" ? `<div class="err">${esc(r.error)}</div>` : `<span class="muted">아직 안 만듦</span>`}
+          ${ruleNotes(p, c)}
           ${r.checks && r.checks.autoFit ? `<span class="muted"> · 자동 맞춤: ${AUTO[r.checks.autoFit]}</span>` : ""}
           ${r.status === "done" && isStale(c, cards.length) ? `<span class="note"> · 그림이나 글자가 바뀌어 다시 그려야 함</span>` : ""}
           ${r.status === "done" ? ` · <a href="/api/projects/${esc(p.id)}/cards/${esc(r.file)}" target="_blank">${esc(r.file)}</a>` : ""}
@@ -466,6 +473,7 @@ function finalSection(p) {
         <button id="make-export" ${busy || !f.ok ? "disabled" : ""}>내려받을 파일 만들기 (PNG·ZIP·출처·이미지 기록)</button>
       </div>
       <div class="muted">최종 승인 전에는 내려받을 수 없습니다. 승인 뒤에 카드를 고치면 승인이 풀립니다.</div>
+      <div class="note">🎨 앱의 PNG는 초안입니다. 디자인은 Canva에서 마무리하세요 — ZIP 안의 <b>Canva용 글.md</b>를 Canva 템플릿에 넣으면 됩니다(Claude Code의 Canva 연결로 글 넣기도 가능).</div>
       <div id="final-err" class="err"></div>
     </div>
     ${exportsList.length ? `<div class="box"><b>내보낸 파일</b>${exportsList.map((e) => {
