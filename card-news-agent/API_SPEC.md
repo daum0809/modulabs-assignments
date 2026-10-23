@@ -1,8 +1,7 @@
 # API_SPEC — 화면과 서버의 약속
 
 PRD.md의 "웹 API 계약 초안"을 Python 구현(`cardnews/server.py`)에 맞춰 확정한 문서다.
-지금 구현된 범위는 **주제 입력 → 조사 → 후보 선택 → 질문·답변 → 편집 방향(심층 검증 포함) → 스토리보드 승인 → 카드별 그림 → 글자를 올린 카드 PNG·글자만 고치기**까지다(STEP 8). 요청문으로 카드 고치기·최종 승인·내려받기(`/revisions`, `/exports`)는 아직 없다.
-스토리보드 승인·수정·내보내기(`/approve`, `/revisions`, `/exports`)는 아직 없다.
+구현된 범위: **주제 입력 → 조사 → 후보 선택 → 질문·답변 → 편집 방향(심층 검증 포함) → 스토리보드 승인 → 카드별 그림 → 글자를 올린 카드 PNG·글자만 고치기 → 요청문으로 카드 고치기(`/revisions`) → 최종 승인(`/approve` stage final) → 내보내기·검증(`/exports`)** 전체(STEP 4~9), 그리고 확장 기능 **사장님 도입 체크리스트**(STEP 13, `workflow: checklist`).
 
 ## 기본
 
@@ -154,7 +153,7 @@ created → researching → candidates_ready → running → waiting_for_user �
 `editorial_ready` 또는 승인 전 `storyboard_ready`에서만. 승인한 뒤에는 `409 storyboard_locked`. 결과 `{ runId, status: "running" }` → 끝나면 `status: "storyboard_ready"`.
 
 ### `POST /api/projects/{id}/approve`
-`{ stage: "storyboard", version, requestId }`. 화면이 본 `storyboard.version`과 다르면 `409 stale_version`. 승인하면 모든 카드의 `image.status`를 `pending`으로 두고 **그림 작업을 시작**한다(`status: running` → 끝나면 `images_ready`). `stage: "final"`은 STEP 9에서 추가.
+`{ stage: "storyboard", version, requestId }`. 화면이 본 `storyboard.version`과 다르면 `409 stale_version`. 승인하면 모든 카드의 `image.status`를 `pending`으로 두고 **그림 작업을 시작**한다(`status: running` → 끝나면 `images_ready`). `stage: "final"`(최종 승인)은 아래 "STEP 9: 고치기·최종 승인·내보내기" 참고.
 
 ### `POST /api/projects/{id}/cards/{no}/image`
 `{ requestId }`. 카드 하나의 그림만 다시 만든다(새 버전 파일, 이전 파일 보관). 다른 카드와 승인한 스토리보드는 그대로.

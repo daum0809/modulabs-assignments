@@ -6,7 +6,7 @@
 
 - 오늘 제출: 카드뉴스 **한 편**.
 - 주제: 사장님을 위한 자동화 프로그램 **gangsa-hours**(학원 강사 근무시간 입력·강사료 계산).
-  - 자료 위치: `C:\Users\daum0\Desktop\작업폴더\modulabs-assignments\gangsa-hours`
+  - 자료 위치: 같은 저장소의 `gangsa-hours` 폴더. 실습에서는 그중 README.md·app.html·index.html만 복사한 `자료-강사료` 폴더를 썼다(다른 프로젝트인 boss-ai 제외).
 - 독자 가설: 코딩은 모르지만 반복 업무에 시간을 쓰는 사장님. 형식 가설은 이야기형과 단계 안내형([evidence/STEP01-형식가설.md](evidence/STEP01-형식가설.md)).
 - 다른 자동화 프로그램(sales-analysis, shopinsight-ai, local-rag-chatbot)은 다음에 한 편씩 만든다.
 
