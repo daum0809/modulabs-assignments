@@ -8,6 +8,24 @@
 - **만든 방식:** 교안의 [카드뉴스 워크플로 설계 키트 v5.0.0](https://github.com/SunCreation/agent-building-practice/releases/tag/v5.0.0)(PRD·ACCEPTANCE 등)을 받아, 코딩 에이전트(Claude Code)와 바이브코딩으로 구현. PRD는 내 선택(형식 가설·편집 규칙·내 자료 주제)을 반영해 고쳤습니다.
 - **구현:** Python(외부 패키지 없음) · 실행 엔진 Claude CLI · 이미지 Antigravity CLI(agy) → 안 되면 Claude CLI 도형 그림 · 마무리 디자인 Canva
 
+## 결과 한눈에 보기
+
+### ① 앱(에이전트)이 만든 카드뉴스 6장 — 최종 승인본 (초안)
+조사 → 고르기 → 스토리보드 승인 → 그림(agy 5장 · Claude CLI 도형 그림 1장) → 글자 넣기 → 검수 → 최종 승인까지 앱이 만든 결과입니다. 내려받은 ZIP: [STEP11-카드뉴스-cardnews-20261023-190828.zip](evidence/STEP11-카드뉴스-cardnews-20261023-190828.zip) (내보낸 파일 검증 통과 10 · 실패 0 · 확인 못 함 4)
+
+<table>
+<tr><td><img src="evidence/STEP11-%EC%B5%9C%EC%A2%85%EC%B9%B4%EB%93%9C/01.png" width="260" alt="앱 카드 1"></td><td><img src="evidence/STEP11-%EC%B5%9C%EC%A2%85%EC%B9%B4%EB%93%9C/02.png" width="260" alt="앱 카드 2"></td><td><img src="evidence/STEP11-%EC%B5%9C%EC%A2%85%EC%B9%B4%EB%93%9C/03.png" width="260" alt="앱 카드 3"></td></tr>
+<tr><td><img src="evidence/STEP11-%EC%B5%9C%EC%A2%85%EC%B9%B4%EB%93%9C/04.png" width="260" alt="앱 카드 4"></td><td><img src="evidence/STEP11-%EC%B5%9C%EC%A2%85%EC%B9%B4%EB%93%9C/05.png" width="260" alt="앱 카드 5"></td><td><img src="evidence/STEP11-%EC%B5%9C%EC%A2%85%EC%B9%B4%EB%93%9C/06.png" width="260" alt="앱 카드 6"></td></tr>
+</table>
+
+### ② Canva 완성본 6장 — 게시용
+같은 글을 사용자가 고른 Canva 무료 템플릿에 넣고, 사용자가 Canva에서 마무리했습니다.
+
+<table>
+<tr><td><img src="evidence/STEP09-Canva-%EC%99%84%EC%84%B1%EB%B3%B8/01.jpg" width="260" alt="Canva 카드 1"></td><td><img src="evidence/STEP09-Canva-%EC%99%84%EC%84%B1%EB%B3%B8/02.jpg" width="260" alt="Canva 카드 2"></td><td><img src="evidence/STEP09-Canva-%EC%99%84%EC%84%B1%EB%B3%B8/03.jpg" width="260" alt="Canva 카드 3"></td></tr>
+<tr><td><img src="evidence/STEP09-Canva-%EC%99%84%EC%84%B1%EB%B3%B8/04.jpg" width="260" alt="Canva 카드 4"></td><td><img src="evidence/STEP09-Canva-%EC%99%84%EC%84%B1%EB%B3%B8/05.jpg" width="260" alt="Canva 카드 5"></td><td><img src="evidence/STEP09-Canva-%EC%99%84%EC%84%B1%EB%B3%B8/06.jpg" width="260" alt="Canva 카드 6"></td></tr>
+</table>
+
 | 제출물 | 파일 | 상태 |
 |---|---|---|
 | 실행 방법 | 이 README | ✅ |
