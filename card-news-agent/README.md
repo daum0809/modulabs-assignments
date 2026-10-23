@@ -15,8 +15,8 @@
 | 결정과 이유 | [DECISIONS.md](DECISIONS.md) | ✅ |
 | 화면과 서버의 약속 | [API_SPEC.md](API_SPEC.md) | ✅ |
 | 검증 기록 | [VALIDATION.md](VALIDATION.md) | STEP 5까지 (실제 엔진으로 gangsa-hours 조사 → 편집 판단 확인) |
-| 실행 화면·결과 | [evidence/](evidence) | 진행 중 |
-| 카드뉴스 결과(PNG·ZIP), ACCEPTANCE 판정, 확장 과제 | — | 아직 |
+| 실행 화면·결과 | [evidence/](evidence) | ✅ 형식 가설, 모의 화면, 스토리보드·그림 화면, 카드 7장·6장 미리보기, 최종 ZIP, 확장 체크리스트 |
+| 카드뉴스 결과(PNG·ZIP), ACCEPTANCE 판정, 확장 과제 | [ZIP](evidence/STEP09-카드뉴스-cardnews-20261023-164008.zip) · [ACCEPTANCE.md](ACCEPTANCE.md) · [CHECKLIST_PRD.md](CHECKLIST_PRD.md) | ✅ 카드 6장 PNG·ZIP(검증 통과 10·실패 0), ACCEPTANCE 통과 13·일부 미확인 2·실패 0, 확장 정상 입력·자료 부족 입력 실행 |
 
 | 단계 | 상태 |
 |---|---|
