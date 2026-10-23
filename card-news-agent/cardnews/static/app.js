@@ -78,6 +78,8 @@ async function showHome() {
     ${engineWarning()}
     <h1>새 카드뉴스 만들기</h1>
     <form id="new" class="box">
+      <label class="field" for="workflow">만들 것</label>
+      <select id="workflow"><option value="cardnews">카드뉴스</option><option value="checklist">사장님 도입 체크리스트 (자료 폴더 필요)</option></select>
       <label class="field" for="topic">주제</label>
       <input type="text" id="topic" required maxlength="200" placeholder="예: AI 최신소식 / 강사료 자동 계산 프로그램 소개">
       <label class="field" for="source">자료 위치 (선택)</label>
@@ -106,6 +108,7 @@ async function showHome() {
       sourcePath: document.getElementById("source").value,
       direction: document.getElementById("direction").value,
       periodDays: Number(document.getElementById("period").value),
+      workflow: document.getElementById("workflow").value,
     };
     const r1 = await api("POST", "/api/projects", body);
     if (!r1.ok) { document.getElementById("new-err").textContent = errMsg(r1); btn.disabled = false; return; }
@@ -184,7 +187,15 @@ function researchSection(p) {
       ${res.note ? `<br><b>${esc(res.note)}</b>` : ""}
       ${traceLine(res.trace, res.costUsd)}
     </div>
-    ${few && !locked ? `<div class="box warn">기간 안에서 후보를 ${res.candidates.length}개만 찾았습니다.
+    ${p.workflow === "checklist" && !locked ? `<div class="box ${res.candidates.length ? "" : "bad"}">
+      ${res.candidates.length ? "자료가 부족한 후보가 있으면 자료 폴더를 더 넣고 다시 조사할 수 있습니다." :
+        `<b>자료에서 후보를 찾지 못했습니다.</b> 그럴듯하게 채우지 않고 멈췄습니다. 자료 폴더를 더 넣어 다시 조사해 주세요.`}
+      ${(p.extraSources || []).length ? `<div class="muted">추가한 자료: ${p.extraSources.map(esc).join(", ")}</div>` : ""}
+      <label class="field" for="add-src">추가 자료 폴더 (전체 경로)</label>
+      <input type="text" id="add-src" placeholder="예: C:\\Users\\...\\자료-보충">
+      <div class="row"><button class="secondary" id="add-src-btn">자료 추가하고 다시 조사</button></div>
+      <div id="add-err" class="err"></div></div>` :
+    few && !locked ? `<div class="box warn">기간 안에서 후보를 ${res.candidates.length}개만 찾았습니다.
       ${res.periodDays < 30 ? `<div class="row"><button class="secondary" id="widen">30일로 넓혀 다시 조사</button></div>` : ""}</div>` : ""}
     <div class="candidates">
       ${res.candidates.map((c) => `
@@ -252,9 +263,25 @@ function srcLink(s) {
   return /^https?:/.test(s || "") ? `<a href="${esc(s)}" target="_blank" rel="noopener">${esc(s)}</a>` : esc(s);
 }
 
+function checklistSection(p, e) {
+  const cl = e.checklist;
+  const all = ["prepare", "steps", "cautions"].flatMap((k) => cl[k] || []);
+  const ok = all.filter((x) => x.basisFound).length;
+  const part = (title, xs) => `<h3>${title}</h3><ul class="check">${(xs || []).map((x) =>
+    `<li>${x.basisFound ? "✅" : "⚠"} ${esc(x.item)}<div class="muted">근거: ${x.basis ? srcLink(x.basis) : "없음"}${x.basisFound ? "" : " — 읽은 자료에서 찾지 못함"}</div></li>`).join("")}</ul>`;
+  return `<h2>3. 사장님 도입 체크리스트</h2><div class="box ${e.mock ? "warn" : "ok"}">
+    <b>${esc(cl.title)}</b> <span class="muted">— ${esc(cl.target || "")}</span>
+    <div class="muted">항목 ${all.length}개 · 근거 확인 ${ok} · 근거 없음 ${all.length - ok}${(p.extraSources || []).length ? ` · 추가 자료 ${p.extraSources.length}개` : ""}</div>
+    ${part("준비물", cl.prepare)}${part("도입 순서", cl.steps)}${part("주의할 점", cl.cautions)}
+    <h3>자료에 없어서 확인하지 못한 것</h3><ul>${(cl.missing || []).map((m) => `<li>${esc(m)}</li>`).join("") || "<li>없음</li>"}</ul>
+    <div class="row"><a href="/api/projects/${esc(p.id)}/checklist.md">⬇ 체크리스트 내려받기 (.md)</a></div>
+    ${traceLine(e.trace, e.costUsd)}</div>`;
+}
+
 function editorialSection(p) {
   const e = p.editorial;
   if (!e) return "";
+  if (e.checklist) return checklistSection(p, e);
   const hook = (h) => (typeof h === "string" ? esc(h) : `${esc(h.text)} <div class="muted">근거: ${esc(h.basis)}</div>`);
   const items = (xs) => (xs && xs.length ? `<ul>${xs.map((x) => `<li>${esc(x.text)} <span class="muted">— ${srcLink(x.source)}</span></li>`).join("")}</ul>` : `<p class="muted">없음</p>`);
   const v = e.verification;
@@ -278,7 +305,7 @@ function editorialSection(p) {
 function storyboardSection(p) {
   const sb = p.storyboard;
   if (!sb) {
-    if (p.status !== "editorial_ready") return "";
+    if (p.status !== "editorial_ready" || p.workflow === "checklist") return "";
     return `<h2>5. 스토리보드</h2><div class="box"><div class="muted">편집 방향을 바탕으로 카드 5~8장의 설계도를 만듭니다. 승인하기 전에는 그림을 만들지 않습니다.</div>
       <div class="row"><button id="make-sb">스토리보드 만들기</button></div></div>`;
   }
@@ -469,6 +496,15 @@ function bindProject(p) {
   if (cancel) cancel.onclick = async () => {
     cancel.disabled = true;
     await api("POST", `/api/runs/${cancel.dataset.run}/cancel`);
+    reload();
+  };
+  const addBtn = document.getElementById("add-src-btn");
+  if (addBtn) addBtn.onclick = async () => {
+    const v = document.getElementById("add-src").value.trim();
+    if (!v) { document.getElementById("add-err").textContent = "폴더 경로를 적어 주세요."; return; }
+    addBtn.disabled = true;
+    const r = await api("POST", `/api/projects/${pid}/research`, { requestId: rid(), addSource: v });
+    if (!r.ok) { document.getElementById("add-err").textContent = errMsg(r); addBtn.disabled = false; return; }
     reload();
   };
   const widen = document.getElementById("widen");

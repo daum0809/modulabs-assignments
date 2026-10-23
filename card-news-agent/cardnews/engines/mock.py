@@ -65,7 +65,33 @@ class MockEngine:
             },
         }
 
+    def _checklist(self, ctx, emit, cancel):
+        """모의 체크리스트: 자료 폴더 글자 수가 적으면 자료 부족 질문부터 한다."""
+        from pathlib import Path
+
+        answered = {a["key"] for a in ctx.get("answers", [])}
+        dirs = [Path(d) for d in [ctx.get("sourcePath"), *(ctx.get("extraSources") or [])] if d]
+        files = [f for d in dirs if d.is_dir() for f in d.iterdir() if f.is_file()]
+        size = sum(f.stat().st_size for f in files)
+        _wait(cancel, self.step_seconds)
+        if size < 300 and "material" not in answered:
+            return {"type": "need_input", "question": {
+                "key": "material", "question": "자료가 부족합니다. 어떻게 할까요?",
+                "why": f"[모의] 자료가 {size}바이트뿐이라 근거로 쓸 내용이 거의 없습니다.",
+                "options": [{"id": "more", "label": "자료를 더 넣을게요", "desc": "자유 입력에 추가 자료 폴더 경로"},
+                            {"id": "as_is", "label": "부족한 대로 만들기", "desc": "근거 없는 칸은 비워 둠"}],
+                "recommended": "more", "recommendReason": "[모의] 근거 없이 만들면 대부분 빈칸입니다.", "allowFree": True}}
+        name = files[0].name if files else "README.md"
+        found = size >= 300
+        item = lambda t: {"item": f"[모의] {t}", "basis": f"{name} (예시)" if found else "", "basisFound": found}
+        return {"type": "result", "sessionId": ctx.get("sessionId"), "editorial": {"mock": True, "checklist": {
+            "title": "[모의] 도입 체크리스트", "target": "[모의] 사장님",
+            "prepare": [item("준비물 예시")], "steps": [item("1단계 예시"), item("2단계 예시")], "cautions": [item("주의 예시")],
+            "missing": [] if found else ["[모의] 자료가 짧아 준비물·순서를 확인하지 못함"], "note": "[모의] 예시"}}}
+
     def editorial(self, ctx, emit, cancel):
+        if ctx.get("workflow") == "checklist":
+            return self._checklist(ctx, emit, cancel)
         answered = {a["key"]: a for a in ctx.get("answers", [])}
         emit("[모의] 선택한 후보를 심층 조사하는 척합니다.")
         _wait(cancel, self.step_seconds)

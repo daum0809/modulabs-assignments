@@ -99,6 +99,9 @@ def _context(doc):
         "periodDays": doc.get("periodDays"),
         "selected": [c for c in research.get("candidates", []) if c["id"] in chosen],
         "answers": doc.get("answers", []),
+        "workflow": doc.get("workflow", "cardnews"),
+        "extraSources": doc.get("extraSources") or [],
+        "readFiles": ((research.get("trace") or {}).get("files") or []),
         "editorial": doc.get("editorial"),
         "storyboard": doc.get("storyboard"),
         "storyboardFeedback": doc.get("storyboardFeedback") or [],
@@ -217,4 +220,10 @@ def _apply(doc, run_id, kind, out, new_session):
     else:
         doc["editorial"] = out["editorial"]
         doc["status"] = "editorial_ready"
-        add_event(doc, "편집 방향을 정리했습니다.")
+        cl = out["editorial"].get("checklist")
+        if cl:
+            items = [it for k in ("prepare", "steps", "cautions") for it in cl.get(k, [])]
+            ok = sum(bool(it.get("basisFound")) for it in items)
+            add_event(doc, f"체크리스트 완성: 항목 {len(items)}개 (근거 확인 {ok} · 근거 없음 {len(items) - ok}), 자료에 없음 {len(cl.get('missing', []))}개")
+        else:
+            add_event(doc, "편집 방향을 정리했습니다.")

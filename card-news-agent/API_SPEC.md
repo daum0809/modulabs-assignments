@@ -218,6 +218,14 @@ created → researching → candidates_ready → running → waiting_for_user �
 
 `GET /api/projects/{id}`에 `final: { ready, reason, signature, ok, approval }`가 붙는다. 최종 승인은 서명(카드 번호·PNG 파일·글)에 묶여 있어서 카드가 하나라도 바뀌면 `ok: false`가 된다.
 
+### STEP 13: 사장님 도입 체크리스트
+
+- `POST /api/projects`에 `workflow: "cardnews"(기본) | "checklist"`. checklist는 `sourcePath` 필수. 스토리보드·그림·카드 단계는 409.
+- 조사(`research`)는 같은 API. 후보가 '반복 업무'로 바뀐다. 고르기(`selection`)도 같다.
+- 편집 작업 결과: `editorial.checklist = { title, target, prepare[], steps[], cautions[] (각 {item, basis, basisFound}), missing[], note }`. `basisFound`는 앱이 조사·작성 때 **실제로 읽은 파일·원문**과 근거를 대조한 결과.
+- 자료 부족 질문(`question.key = "material"`): `answer.text`에 **추가 자료 폴더 전체 경로**를 보내면 `extraSources`에 더해 다음 호출에 `--add-dir`로 함께 넘긴다(없는 경로는 400). `optionId: "as_is"`면 부족한 대로 만들고 빈칸은 `missing`에. `optionId: "more"`만 보내면 400("경로를 직접 입력에").
+- `GET /api/projects/{id}/checklist.md`: 체크리스트 Markdown 내려받기(PC 경로는 상대 경로로).
+
 ### `POST /api/projects/{id}/retry`
 `{ "requestId" }`. `failed / interrupted / cancelled`일 때 실패한 작업(`error.retryKind`)을 다시 시작한다. 이미 받은 후보·선택·답변은 그대로 둔다. 그림 작업이면 `done`이 아닌 카드만 다시 만든다.
 

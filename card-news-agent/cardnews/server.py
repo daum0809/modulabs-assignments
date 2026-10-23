@@ -121,6 +121,11 @@ class App:
         if source and not (Path(source).is_absolute() and Path(source).is_dir()):
             raise ApiError(400, "bad_request", "자료 위치는 이 PC에 있는 폴더의 전체 경로로 넣어 주세요 (예: C:\\Users\\...\\gangsa-hours).")
         direction = str(body.get("direction") or "").strip() or None
+        workflow = body.get("workflow") or "cardnews"
+        if workflow not in ("cardnews", "checklist"):
+            raise ApiError(400, "bad_request", "workflow는 cardnews 또는 checklist입니다.")
+        if workflow == "checklist" and not source:
+            raise ApiError(400, "bad_request", "사장님 도입 체크리스트는 자동화 프로그램 자료 폴더가 필요합니다.")
         now = now_iso()
         doc = {
             "id": new_id("prj"),
@@ -128,6 +133,8 @@ class App:
             "sourcePath": source,
             "sourceExists": Path(source).exists() if source else None,
             "direction": direction,
+            "workflow": workflow,
+            "extraSources": [],
             "periodDays": period,
             "engine": self.engine_name,
             "engineSessionId": self.runner.engine.new_session(),
@@ -158,22 +165,29 @@ class App:
         period = body.get("periodDays")
         if period is not None and period not in (7, 30):
             raise ApiError(400, "bad_request", "조사 기간은 7일 또는 30일입니다.")
+        add = str(body.get("addSource") or "").strip().strip('"') or None
+        if add and not (Path(add).is_absolute() and Path(add).is_dir()):
+            raise ApiError(400, "bad_request", "추가 자료는 이 PC에 있는 폴더의 전체 경로로 적어 주세요.")
 
         def fn(doc):
-            replay = check_request(doc, rid, "research", {"periodDays": period})
+            replay = check_request(doc, rid, "research", {"periodDays": period, "addSource": add})
             if replay is not None:
                 return replay, None
             if doc["status"] in ACTIVE_STATUSES:
                 resp = {"runId": doc["currentRunId"], "status": doc["status"], "alreadyRunning": True}
-                remember(doc, rid, "research", {"periodDays": period}, resp)
+                remember(doc, rid, "research", {"periodDays": period, "addSource": add}, resp)
                 return resp, None
             if doc["status"] not in RESEARCH_ALLOWED:
                 raise ApiError(409, "invalid_state", "후보를 고른 뒤에는 다시 조사할 수 없습니다.")
             if period is not None:
                 doc["periodDays"] = period
+            if add and add not in (doc.get("extraSources") or []) and add != doc.get("sourcePath"):
+                # 자료가 부족할 때: 자료 폴더를 더해 다시 조사한다
+                doc.setdefault("extraSources", []).append(add)
+                add_event(doc, f"자료 폴더 추가: {add}")
             run = self.runner.prepare(doc, "research", "researching")
             resp = {"runId": run["id"], "status": doc["status"]}
-            remember(doc, rid, "research", {"periodDays": period}, resp)
+            remember(doc, rid, "research", {"periodDays": period, "addSource": add}, resp)
             return resp, run
 
         return self._update(project_id, fn)
@@ -233,8 +247,17 @@ class App:
                     raise ApiError(409, "already_answered", "이미 답한 질문입니다. 같은 답으로 작업을 다시 시작하지 않습니다.")
                 raise ApiError(409, "stale_question", "지난 질문입니다. 화면을 새로 불러와 현재 질문에 답해 주세요.")
             option_id = answer.get("optionId")
-            text = str(answer.get("text") or "").strip()
+            text = str(answer.get("text") or "").strip().strip('"')
             options = {o["id"]: o for o in q["options"]}
+            if q["key"] == "material":
+                # 자료 부족 질문: '더 넣기'는 직접 입력에 폴더 경로를 받아 다음 호출에 함께 넘긴다
+                if option_id == "more":
+                    raise ApiError(400, "bad_request", "추가 자료 폴더의 전체 경로를 '직접 입력'에 적어 주세요.")
+                if text and not option_id:
+                    if not (Path(text).is_absolute() and Path(text).is_dir()):
+                        raise ApiError(400, "bad_request", "추가 자료는 이 PC에 있는 폴더의 전체 경로로 적어 주세요.")
+                    doc.setdefault("extraSources", []).append(text)
+                    add_event(doc, f"추가 자료 폴더: {text}")
             if option_id:
                 if option_id not in options:
                     raise ApiError(400, "bad_request", "없는 선택지입니다.")
@@ -276,6 +299,8 @@ class App:
                 return replay, None
             if doc["status"] in ACTIVE_STATUSES:
                 raise ApiError(409, "invalid_state", "다른 작업이 진행 중입니다.")
+            if doc.get("workflow") == "checklist":
+                raise ApiError(409, "invalid_state", "체크리스트 프로젝트에는 스토리보드 단계가 없습니다.")
             sb = doc.get("storyboard")
             if sb and sb.get("approved"):
                 raise ApiError(409, "storyboard_locked", "이미 승인한 스토리보드입니다.")
@@ -553,6 +578,36 @@ class App:
 
         return self._update(project_id, fn)
 
+    def checklist_file(self, project_id):
+        """체크리스트를 Markdown으로. PC 경로는 자료 폴더 기준 상대 경로로 바꾼다."""
+        doc = self._get(project_id)
+        cl = (doc.get("editorial") or {}).get("checklist")
+        if not cl:
+            raise ApiError(409, "invalid_state", "아직 체크리스트가 없습니다.")
+        roots = [r for r in [doc.get("sourcePath"), *(doc.get("extraSources") or [])] if r]
+
+        def rel(s):
+            s = str(s or "")
+            for r in roots:
+                if s.lower().startswith(r.lower()):
+                    return Path(r).name + s[len(r):].replace("\\", "/")
+            return s
+
+        lines = [f"# {cl.get('title') or doc['topic']}", "", f"- 대상: {cl.get('target', '')}",
+                 f"- 자료: {', '.join(Path(r).name for r in roots)}", f"- 만든 시각: {doc.get('updatedAt')}", ""]
+        for key, title in (("prepare", "준비물"), ("steps", "도입 순서"), ("cautions", "주의할 점")):
+            lines.append(f"## {title}")
+            for it in cl.get(key, []):
+                mark = "✅ 근거 확인" if it.get("basisFound") else "⚠ 근거를 읽은 자료에서 찾지 못함"
+                lines.append(f"- [ ] {it.get('item')}  \n  근거: {rel(it.get('basis')) or '없음'} — {mark}")
+            lines.append("")
+        lines.append("## 자료에 없어서 확인하지 못한 것")
+        lines += [f"- {m}" for m in cl.get("missing", [])] or ["- 없음"]
+        path = self.store.data_dir / "projects" / project_id / "checklist.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("\n".join(lines), encoding="utf-8")
+        return FileResponse(path, "text/markdown; charset=utf-8", download="checklist.md")
+
     def card_file(self, project_id, name):
         self._get(project_id)
         path = self.store.data_dir / "projects" / project_id / "cards" / name
@@ -669,6 +724,7 @@ ROUTES = [
     ("POST", r"/api/projects/(?P<pid>prj_\w+)/cards/(?P<no>\d{1,2})/text", "card_text"),
     ("POST", r"/api/projects/(?P<pid>prj_\w+)/cards/(?P<no>\d{1,2})/remove", "remove_card"),
     ("POST", r"/api/projects/(?P<pid>prj_\w+)/revisions", "revisions"),
+    ("GET", r"/api/projects/(?P<pid>prj_\w+)/checklist\.md", "checklist_file"),
     ("POST", r"/api/projects/(?P<pid>prj_\w+)/exports", "create_export"),
     ("GET", r"/api/projects/(?P<pid>prj_\w+)/exports", "list_exports"),
     ("GET", r"/api/projects/(?P<pid>prj_\w+)/exports/(?P<name>cardnews-\d{8}-\d{6}\.zip)", "export_file"),

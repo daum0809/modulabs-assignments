@@ -27,7 +27,9 @@
 | STEP 8 글자 넣기·휴대폰 미리보기 | ✅ 사용자 프로젝트 7장 PNG 완성, 7장 모두 검사 통과 ([evidence/STEP08-카드7장.png](evidence/STEP08-카드7장.png)) |
 | STEP 9 카드 고치기·최종 승인·내려받기 | ✅ 6장 최종 승인, ZIP 내보내기([evidence/](evidence)), 내보낸 파일 검증 통과 10·실패 0·확인 못 함 4 |
 | 디자인 개선판 (Canva) | 같은 6장 글로 Canva 인스타그램 캐러셀 6장 생성 (사용자 Canva 계정, 디자인 ID DAHYz8RVeuM) |
-| STEP 10 ACCEPTANCE 판정, STEP 6 표, STEP 13 확장 | 아직 |
+| STEP 6 질문·재개 검증 표 | ✅ [VALIDATION.md](VALIDATION.md) 다섯 칸 표 |
+| STEP 10 ACCEPTANCE 판정 | ✅ [ACCEPTANCE.md](ACCEPTANCE.md): 통과 13 · 일부 미확인 2 · 실패 0 |
+| STEP 13 확장: 사장님 도입 체크리스트 | ✅ [CHECKLIST_PRD.md](CHECKLIST_PRD.md), 정상 입력·자료 부족 입력 실제 실행 ([VALIDATION.md](VALIDATION.md)) |
 
 키트 원본 문서(ACCEPTANCE.md, ENGINE_GUIDE.md, EXAMPLE_RUN.md, REFERENCES.md, assets/)는 비교와 검수를 위해 그대로 두었습니다.
 
@@ -135,6 +137,14 @@ python --version
     - **내려받을 파일 만들기** → ZIP(카드 PNG, 출처.md, 이미지기록.md, image-log.json). 카드별 PNG도 따로 받을 수 있습니다.
     - **내보낸 파일 검증**은 ZIP을 직접 열어 확인합니다. 앱이 확인할 수 없는 것(링크가 열리는지, 법 내용이 맞는지 등)은 '확인 못 함'으로 남기니 직접 확인하세요.
 
+### 사장님 도입 체크리스트 (확장)
+
+첫 화면의 **만들 것**에서 "사장님 도입 체크리스트"를 고르고, **자료 위치**에 자동화 프로그램 폴더를 넣습니다. **편집 방향**에는 가게 상황을 적습니다(예: 강사 5명인 영어학원).
+1. 앱이 자료를 읽고 이 프로그램이 줄여 주는 **반복 업무 후보**를 보여 줍니다(근거 파일, 자료가 충분한지 표시).
+2. 하나를 고르면 **준비물 / 도입 순서 / 주의할 점** 체크리스트를 만듭니다. 항목마다 근거가 있고, 앱이 **실제로 읽은 파일과 대조해 ✅/⚠**를 붙입니다.
+3. 자료가 부족하면 그럴듯하게 채우지 않고 **"자료가 부족합니다"**라고 묻습니다. **직접 입력**에 추가 자료 폴더의 전체 경로를 적으면 그 폴더도 읽어서 다시 만들고, "부족한 대로 만들기"를 고르면 빈칸을 "자료에 없음"으로 표시합니다.
+4. **체크리스트 내려받기(.md)**로 받습니다. PC 경로는 자료 폴더 기준 상대 경로로 바뀝니다.
+
 화면 아래 **작업 진행 내역**을 펼치면 앱이 한 일을 시간 순서로 볼 수 있습니다.
 
 ## 다른 포트로 켜기 / 시험용 폴더
@@ -170,6 +180,7 @@ card-news-workflow-kit/
 ├── DECISIONS.md           결정과 이유
 ├── API_SPEC.md            화면과 서버의 약속
 ├── VALIDATION.md          실행 검증 기록
+├── CHECKLIST_PRD.md       확장 과제: 사장님 도입 체크리스트
 ├── ACCEPTANCE.md          검수 항목
 └── (키트 원래 자료) ENGINE_GUIDE.md, EXAMPLE_RUN.md, REFERENCES.md, assets/
 ```

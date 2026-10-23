@@ -74,7 +74,7 @@ class ClaudeCliEngine:
         now = datetime.now().astimezone()
         days = ctx.get("periodDays") or 7
         start = (now - timedelta(days=days)).date().isoformat()
-        prompt = _research_prompt(ctx, now, start)
+        prompt = _checklist_research_prompt(ctx) if ctx.get("workflow") == "checklist" else _research_prompt(ctx, now, start)
         emit(f"Claude CLI 호출: 넓은 조사 (모델 {self.model}, effort {self.effort})")
         call = self._call(ctx, prompt, emit, cancel)
         if call["type"] == "error":
@@ -116,7 +116,8 @@ class ClaudeCliEngine:
         }
 
     def editorial(self, ctx, emit, cancel):
-        prompt = _editorial_prompt(ctx)
+        checklist = ctx.get("workflow") == "checklist"
+        prompt = _checklist_prompt(ctx) if checklist else _editorial_prompt(ctx)
         emit("Claude CLI 호출: 심층 검증과 편집 판단" + (" (답변 반영)" if ctx.get("answers") else ""))
         call = self._call(ctx, prompt, emit, cancel)
         if call["type"] == "error":
@@ -135,6 +136,12 @@ class ClaudeCliEngine:
             q.setdefault("allowFree", True)
             q.setdefault("multiSelect", False)
             return {"type": "need_input", "question": q, "sessionId": call["sessionId"]}
+        if checklist and status == "result" and isinstance(data.get("checklist"), dict):
+            read = set(ctx.get("readFiles") or []) | set(call["trace"]["files"]) | set(call["trace"]["fetched"])
+            bases = [ctx.get("sourcePath")] + list(ctx.get("extraSources") or [])
+            cl = mark_basis(data["checklist"], read, bases)
+            return {"type": "result", "sessionId": call["sessionId"],
+                    "editorial": {"checklist": cl, "mock": False, "trace": call["trace"], "costUsd": call["cost"]}}
         if status == "result" and isinstance(data.get("editorial"), dict):
             ed = _normalize_editorial(data["editorial"])
             ed["mock"] = False
@@ -212,8 +219,9 @@ class ClaudeCliEngine:
         if tools:
             args += ["--allowedTools", *tools]
         args += ["--disallowedTools", *DISALLOWED_TOOLS, *[t for t in ALLOWED_TOOLS if t not in tools]]
-        if ctx.get("sourcePath") and tools:
-            args += ["--add-dir", ctx["sourcePath"]]
+        dirs = [d for d in [ctx.get("sourcePath"), *(ctx.get("extraSources") or [])] if d]
+        if dirs and tools:
+            args += ["--add-dir", *dirs]
         sid = ctx.get("sessionId")
         if not session:
             args += ["--no-session-persistence"]
@@ -387,6 +395,9 @@ def _source_was_read(source, read_paths, base):
         r_norm = str(r).replace("\\", "/").lower()
         if r_norm in src or src in r_norm:
             return True
+        name = r_norm.rsplit("/", 1)[-1]
+        if not r_norm.startswith("http") and len(name) > 3 and re.search(r"(^|[\s/(\[])" + re.escape(name) + r"($|[\s)\],:])", src):
+            return True  # 근거에 파일 이름만 적힌 경우 (예: "README.md (섹션 2)")
         if base:
             parent = str(Path(base).parent).replace("\\", "/").lower().rstrip("/") + "/"
             rel = r_norm[len(parent):] if r_norm.startswith(parent) else None
@@ -502,6 +513,79 @@ def _storyboard_prompt(ctx):
 {OUTPUT_RULE}
 ```json
 {{"status": "result", "storyboard": {{"format": "", "reason": "카드 수와 순서를 이렇게 정한 이유 한 줄", "style": {{"palette": ["#1F3A5F"], "illustration": "", "mood": "", "layout": "위쪽 40%를 비워 제목 자리"}}, "cards": [{{"no": 1, "role": "표지", "title": "", "keyLine": "", "body": "", "imageRole": "", "imagePlan": "", "sources": [""], "note": ""}}]}}}}
+```"""
+
+
+CHECKLIST_SECTIONS = ("prepare", "steps", "cautions")
+
+
+def mark_basis(cl, read, bases):
+    """체크리스트 항목마다 근거가 실제로 읽은 파일·원문에 있는지 표시한다(basisFound)."""
+    for key in CHECKLIST_SECTIONS:
+        items = cl.get(key) if isinstance(cl.get(key), list) else []
+        for it in items:
+            basis = str(it.get("basis") or "")
+            it["basisFound"] = bool(basis) and any(_source_was_read(basis, read, b) for b in bases if b) \
+                or any(u in basis for u in read if str(u).startswith("http"))
+        cl[key] = items
+    cl.setdefault("missing", [])
+    return cl
+
+
+def _checklist_research_prompt(ctx):
+    sources = "\n".join(f"- {d}" for d in [ctx.get("sourcePath"), *(ctx.get("extraSources") or [])] if d)
+    return f"""너는 '사장님 도입 체크리스트' 앱의 조사 담당이다. 지금은 '넓은 조사' 단계다.
+
+주제: {ctx['topic']}
+가게 상황(사용자 입력): {ctx.get('direction') or '(없음)'}
+자료 폴더(Glob/Grep/Read로 읽는다):
+{sources or '(없음)'}
+
+할 일: 이 자료가 설명하는 자동화 프로그램이 **사장님의 어떤 반복 업무를 줄여 주는지** 후보를 뽑는다(보통 2~6개, 자료에 있는 만큼만).
+후보마다: id(c1…), title(반복 업무 한 줄), summary(무엇이 바뀌는지), kind("반복 업무"), date(문서 날짜, 없으면 "미확인"),
+source(근거 파일 경로), value(사장님에게 좋은 점), uncertainty(자료가 부족하거나 불확실한 점. 자료가 충분하면 "자료 충분"으로 시작).
+자료가 짧거나 근거가 부족하면 후보를 지어내지 말고 찾은 만큼만, uncertainty에 무엇이 부족한지 구체적으로 쓴다.
+프로그램 내부 구현(비밀번호·로그인 방식·코드 세부)은 후보 문장에 쓰지 않는다.
+
+{OUTPUT_RULE}
+```json
+{{"status": "result", "note": "자료 범위·부족한 점 한 줄", "candidates": [{{"id": "c1", "title": "", "summary": "", "kind": "반복 업무", "date": "", "source": "", "value": "", "uncertainty": ""}}]}}
+```"""
+
+
+def _checklist_prompt(ctx):
+    selected = json.dumps(ctx.get("selected", []), ensure_ascii=False)
+    answers = ctx.get("answers", [])
+    answered = "\n".join(f"- [{a['key']}] {a['question']} → {a['label']}" for a in answers) or "(아직 없음)"
+    asked = ", ".join(sorted({a["key"] for a in answers})) or "(없음)"
+    sources = "\n".join(f"- {d}" for d in [ctx.get("sourcePath"), *(ctx.get("extraSources") or [])] if d)
+    return f"""너는 '사장님 도입 체크리스트' 앱의 작성 담당이다.
+
+주제: {ctx['topic']}
+가게 상황(사용자 입력): {ctx.get('direction') or '(없음)'}
+자료 폴더:
+{sources}
+사장님이 고른 반복 업무: {selected}
+지금까지 받은 답변:
+{answered}
+
+할 일: 자료 폴더를 다시 읽고, 이 프로그램을 사장님 가게에 들일 때의 체크리스트를 만든다.
+- prepare(준비물), steps(도입 순서), cautions(주의할 점) 각 2~5개. 항목마다 item(한 줄, 사장님 말투)과 basis(근거 파일 경로와 위치, 또는 공식 링크).
+- 법·세금·노무 내용은 WebSearch/WebFetch로 공식 자료(정부 기관)와 대조하고 그 링크를 basis로 쓴다.
+- 자료에 없는 것은 지어내지 말고 missing 목록에 "무엇이 없어서 확인하지 못했는지"를 쓴다.
+- 프로그램 내부 구현(비밀번호·로그인 방식·저장 방식·코드)은 쓰지 않는다. 운영자 경험·효과는 사실처럼 쓰지 않는다.
+
+질문 규칙(need_input):
+- 자료가 너무 짧거나 근거가 부족해 체크리스트 항목 대부분을 근거로 뒷받침할 수 없고, key "material"을 아직 묻지 않았다면 먼저 묻는다:
+  question "자료가 부족합니다. 어떻게 할까요?", why에 부족한 점을 구체적으로, options [{{"id":"more","label":"자료를 더 넣을게요","desc":"자유 입력에 추가 자료 폴더의 전체 경로를 적어 주세요"}}, {{"id":"as_is","label":"부족한 대로 만들기","desc":"근거 없는 칸은 비우고 '자료에 없음'으로 표시"}}], allowFree true.
+- 가게 상황에 따라 결과가 크게 달라지고 아직 모를 때만 key "context"로 한 번 묻는다. 이미 답한 key({asked})는 다시 묻지 않는다.
+
+{OUTPUT_RULE}
+질문할 때: ```json
+{{"status": "need_input", "question": {{"key": "material", "question": "", "why": "", "options": [{{"id": "more", "label": "", "desc": ""}}], "recommended": "more", "recommendReason": "", "allowFree": true}}}}
+```
+다 만들었을 때: ```json
+{{"status": "result", "checklist": {{"title": "", "target": "누구를 위한 체크리스트인지", "prepare": [{{"item": "", "basis": ""}}], "steps": [{{"item": "", "basis": ""}}], "cautions": [{{"item": "", "basis": ""}}], "missing": [""], "note": ""}}}}
 ```"""
 
 
