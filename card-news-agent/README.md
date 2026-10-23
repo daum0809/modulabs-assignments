@@ -14,7 +14,7 @@
 | 요구사항 (내 선택 반영) | [PRD.md](PRD.md) | ✅ |
 | 결정과 이유 | [DECISIONS.md](DECISIONS.md) | ✅ |
 | 화면과 서버의 약속 | [API_SPEC.md](API_SPEC.md) | ✅ |
-| 검증 기록 | [VALIDATION.md](VALIDATION.md) | STEP 5까지. 실제 검색 흐름은 CLI 로그인 후 확인 예정 |
+| 검증 기록 | [VALIDATION.md](VALIDATION.md) | STEP 5까지 (실제 엔진으로 gangsa-hours 조사 → 편집 판단 확인) |
 | 실행 화면·결과 | [evidence/](evidence) | 진행 중 |
 | 카드뉴스 결과(PNG·ZIP), ACCEPTANCE 판정, 확장 과제 | — | 아직 |
 
@@ -22,7 +22,7 @@
 |---|---|
 | STEP 1 형식 가설 · STEP 2 결정 · STEP 3 PRD 반영 | ✅ |
 | STEP 4 화면(모의 데이터) | ✅ 브라우저 확인 |
-| STEP 5 실제 엔진 연결 | 코드 완료 · 가짜 CLI 시험 통과 · **실제 검색은 CLI 로그인 대기** |
+| STEP 5 실제 엔진 연결 | ✅ 실제 엔진으로 조사 → 선택 → 편집 판단, 실패 후 같은 세션으로 다시 시도까지 확인. 실제 엔진의 질문→답변은 미확인 |
 | STEP 6~ 질문·재개 검증, 이미지, 글자, 수정·내려받기, 확장 | 아직 |
 
 키트 원본 문서(ACCEPTANCE.md, ENGINE_GUIDE.md, EXAMPLE_RUN.md, REFERENCES.md, assets/)는 비교와 검수를 위해 그대로 두었습니다.

@@ -96,8 +96,7 @@ class ClaudeCliEngine:
             c.setdefault("id", f"c{i}")
             c["id"] = str(c["id"])
             c.setdefault("date", "미확인")
-            src = str(c.get("source") or "")
-            c["sourceRead"] = any(src and (src in r or r in src) for r in read)
+            c["sourceRead"] = _source_was_read(c.get("source"), read, ctx.get("sourcePath"))
         return {
             "type": "result",
             "sessionId": call["sessionId"],
@@ -137,7 +136,7 @@ class ClaudeCliEngine:
             q.setdefault("multiSelect", False)
             return {"type": "need_input", "question": q, "sessionId": call["sessionId"]}
         if status == "result" and isinstance(data.get("editorial"), dict):
-            ed = data["editorial"]
+            ed = _normalize_editorial(data["editorial"])
             ed["mock"] = False
             ed["trace"] = call["trace"]
             ed["costUsd"] = call["cost"]
@@ -156,6 +155,18 @@ class ClaudeCliEngine:
     # --- CLI 호출 ---
 
     def _call(self, ctx, prompt, emit, cancel):
+        """엔진을 한 번 부른다. 답의 JSON을 못 읽으면 같은 세션에 'JSON만 다시'를 한 번 요청한다."""
+        call = self._call_once(ctx, prompt, emit, cancel)
+        if call.get("code") != "invalid_output" or not call.get("sessionId"):
+            return call
+        emit("엔진 답의 JSON 형식이 깨져 같은 대화에서 JSON만 다시 요청합니다 (1회).")
+        again = dict(ctx, sessionId=call["sessionId"], sessionStarted=True)
+        second = self._call_once(again, RESEND_PROMPT, emit, cancel)
+        if second["type"] == "ok":
+            second["cost"] = (second.get("cost") or 0) + (call.get("cost") or 0)
+        return second
+
+    def _call_once(self, ctx, prompt, emit, cancel):
         cwd = self.work_dir / ctx["projectId"]
         cwd.mkdir(parents=True, exist_ok=True)
         args = [self.exe, "-p", "--output-format", "stream-json", "--verbose",
@@ -230,10 +241,11 @@ class ClaudeCliEngine:
         text = str(final.get("result") or "")
         if final.get("is_error") or final.get("subtype") != "success":
             return _classify_error(text or final.get("subtype", ""), session)
+        (cwd / "last_answer.txt").write_text(text, encoding="utf-8")  # 문제가 생겼을 때 원문 확인용
         data = _extract_json(text)
         if not isinstance(data, dict):
-            return {"type": "error", "code": "invalid_output", "sessionId": session,
-                    "message": "엔진 답변에서 약속한 JSON을 찾지 못했습니다. 완료로 처리하지 않습니다."}
+            return {"type": "error", "code": "invalid_output", "sessionId": session, "cost": final.get("total_cost_usd"),
+                    "message": f"엔진 답변에서 약속한 JSON을 읽지 못했습니다. 완료로 처리하지 않습니다. (원문: {cwd / 'last_answer.txt'})"}
         emit(f"Claude CLI 응답 수신 (세션 {session[:8]}…, 비용 약 ${final.get('total_cost_usd') or 0:.3f})")
         return {"type": "ok", "data": data, "sessionId": session, "trace": trace,
                 "cost": final.get("total_cost_usd")}
@@ -276,18 +288,65 @@ def _note_tool(part, trace, emit):
 
 def _extract_json(text):
     fences = re.findall(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.S)
-    for chunk in reversed(fences):
-        try:
-            return json.loads(chunk)
-        except ValueError:
-            pass
     start, end = text.find("{"), text.rfind("}")
-    if start != -1 and end > start:
-        try:
-            return json.loads(text[start:end + 1])
-        except ValueError:
-            return None
+    chunks = list(reversed(fences)) + ([text[start:end + 1]] if start != -1 and end > start else [])
+    for chunk in chunks:
+        for candidate in (chunk, _close_brackets(chunk)):
+            try:
+                return json.loads(candidate)
+            except (ValueError, TypeError):
+                pass
     return None
+
+
+def _close_brackets(s):
+    """모델이 닫는 괄호를 빠뜨린 JSON을 보정한다(문자열 밖의 열린 괄호를 끝에서 닫음).
+    괄호 순서가 엇갈리면 보정하지 않는다(None)."""
+    stack, in_str, esc = [], False, False
+    pairs = {"{": "}", "[": "]"}
+    for ch in s:
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+        elif ch == '"':
+            in_str = True
+        elif ch in pairs:
+            stack.append(pairs[ch])
+        elif ch in "}]":
+            if not stack or stack.pop() != ch:
+                return None
+    if in_str or not stack:
+        return None
+    return s + "".join(reversed(stack))
+
+
+def _normalize_editorial(ed):
+    """괄호가 하나 빠지면 conflicts가 verification 안으로 들어가는 일이 있어 제자리로 옮긴다."""
+    v = ed.get("verification")
+    if isinstance(v, dict) and "conflicts" in v and "conflicts" not in ed:
+        ed["conflicts"] = v.pop("conflicts")
+    return ed
+
+
+def _source_was_read(source, read_paths, base):
+    """후보 출처(URL·전체 경로·'gangsa-hours/README.md (섹션 2)' 같은 상대 경로)를 실제로 읽었는지."""
+    src = str(source or "").replace("\\", "/").lower()
+    if not src:
+        return False
+    for r in read_paths:
+        r_norm = str(r).replace("\\", "/").lower()
+        if r_norm in src or src in r_norm:
+            return True
+        if base:
+            parent = str(Path(base).parent).replace("\\", "/").lower().rstrip("/") + "/"
+            rel = r_norm[len(parent):] if r_norm.startswith(parent) else None
+            if rel and rel in src:
+                return True
+    return False
 
 
 def _read_lines(stream, out):
@@ -317,6 +376,9 @@ def _kill_tree(proc):
 
 
 # --- 프롬프트 ---
+
+RESEND_PROMPT = """방금 답의 JSON이 형식이 깨져(괄호·따옴표 등) 앱이 읽지 못했다.
+내용은 바꾸지 말고, 앞에서 약속한 형식의 JSON 하나만 ```json 코드 블록으로 다시 보내라. 다른 설명은 쓰지 마라."""
 
 OUTPUT_RULE = """
 답변의 마지막에 아래 형식의 JSON 하나만 ```json 코드 블록으로 붙인다. JSON 밖의 설명은 짧게 해도 되지만, 앱은 JSON만 읽는다.
