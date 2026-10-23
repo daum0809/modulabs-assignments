@@ -15,8 +15,8 @@
 | 결정과 이유 | [DECISIONS.md](DECISIONS.md) | ✅ |
 | 화면과 서버의 약속 | [API_SPEC.md](API_SPEC.md) | ✅ |
 | 검증 기록 | [VALIDATION.md](VALIDATION.md) | ✅ STEP 5~13 (STEP 6 다섯 칸 표, STEP 11 교차 검수, STEP 12 비교, 모의·실제 구분, 아직 확인 못 한 것) |
-| 실행 화면·결과 | [evidence/](evidence) | ✅ 형식 가설, 모의 화면, 스토리보드·그림 화면(글을 고치기 전 화면), 카드 7장·6장 미리보기, 6번 카드 고치기 전·후, 최종 ZIP, Canva 개선판, 확장 체크리스트 |
-| 카드뉴스 결과(PNG·ZIP), ACCEPTANCE 판정, 확장 과제 | [최종 ZIP](evidence/STEP11-카드뉴스-cardnews-20261023-190828.zip) · [Canva 개선판](evidence/STEP09-Canva-개선판) · [ACCEPTANCE.md](ACCEPTANCE.md) · [CHECKLIST_PRD.md](CHECKLIST_PRD.md) | ✅ 카드 6장 PNG·ZIP(검증 통과 10·실패 0), ACCEPTANCE 통과 13·일부 미확인 2·실패 0, 확장 정상 입력·자료 부족 입력 실행 |
+| 실행 화면·결과 | [evidence/](evidence) | ✅ 형식 가설, 모의 화면, 스토리보드·그림 화면(글을 고치기 전 화면), 카드 7장·6장 미리보기, 6번 카드 고치기 전·후, 최종 ZIP, Canva 완성본, 확장 체크리스트 |
+| 카드뉴스 결과(PNG·ZIP), ACCEPTANCE 판정, 확장 과제 | [최종 ZIP](evidence/STEP11-카드뉴스-cardnews-20261023-190828.zip) · [Canva 완성본](evidence/STEP09-Canva-완성본) · [ACCEPTANCE.md](ACCEPTANCE.md) · [CHECKLIST_PRD.md](CHECKLIST_PRD.md) | ✅ 카드 6장 PNG·ZIP(검증 통과 10·실패 0), ACCEPTANCE 통과 13·일부 미확인 2·실패 0, 확장 정상 입력·자료 부족 입력 실행 |
 
 | 단계 | 상태 |
 |---|---|
@@ -28,7 +28,7 @@
 | STEP 9 카드 고치기·최종 승인·내려받기 | ✅ 6장 최종 승인, ZIP 내보내기([evidence/](evidence)), 내보낸 파일 검증 통과 10·실패 0·확인 못 함 4 |
 | STEP 11 교차 검수 (혼자 진행) | ✅ 핵심 문장 원문 대조(2번 일치, 주휴수당 조건 대조), 휴대폰 너비에서 가장 읽기 어려운 6번 카드만 고침 → 다시 승인·ZIP 검증 ([VALIDATION.md](VALIDATION.md)) |
 | STEP 12 참고 구현 비교 | ✅ 내 앱 기준 비교 3가지 ([VALIDATION.md](VALIDATION.md)). 참고 구현 직접 실행은 하지 않음 |
-| 디자인 개선판 (Canva) | ✅ 같은 글을 사용자가 고른 Canva 무료 템플릿 6장에 넣음 → 결과 [evidence/STEP09-Canva-개선판/](evidence/STEP09-Canva-개선판) |
+| 디자인 완성본 (Canva) | ✅ 같은 글을 사용자가 고른 Canva 무료 템플릿 6장에 넣고 사용자가 Canva에서 마무리한 **완성본** → [evidence/STEP09-Canva-완성본/](evidence/STEP09-Canva-완성본). 앱 PNG(최종 ZIP)는 에이전트가 만든 초안, Canva는 게시용 완성본 |
 | STEP 6 질문·재개 검증 표 | ✅ [VALIDATION.md](VALIDATION.md) 다섯 칸 표 |
 | STEP 10 ACCEPTANCE 판정 | ✅ [ACCEPTANCE.md](ACCEPTANCE.md): 통과 13 · 일부 미확인 2 · 실패 0 |
 | STEP 13 확장: 사장님 도입 체크리스트 | ✅ [CHECKLIST_PRD.md](CHECKLIST_PRD.md), 정상 입력·자료 부족 입력 실제 실행 ([VALIDATION.md](VALIDATION.md)) |
