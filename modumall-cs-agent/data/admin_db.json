@@ -1,0 +1,39 @@
+{
+  "orders": {
+    "MD-1001": {
+      "customer": "C-01",
+      "status": "배송중",
+      "ordered_at": "2026-10-25",
+      "items": [{"sku": "TS-01", "name": "기본 반팔 티셔츠", "qty": 2, "price": 12900}],
+      "total": 28800,
+      "shipping_fee": 3000,
+      "region": "서울",
+      "tracking_no": "6012-3456-7890",
+      "is_bundle": false
+    },
+    "MD-1002": {
+      "customer": "C-02",
+      "status": "배송완료",
+      "ordered_at": "2026-10-20",
+      "delivered_at": "2026-10-23",
+      "items": [{"sku": "SET-11", "name": "주방 수납 3종 세트", "qty": 1, "price": 39000}],
+      "total": 42000,
+      "shipping_fee": 3000,
+      "region": "제주",
+      "tracking_no": "6012-1111-2222",
+      "is_bundle": true,
+      "bundle_components": ["수납 바구니 대", "수납 바구니 중", "수납 바구니 소"]
+    },
+    "MD-1003": {
+      "customer": "C-03",
+      "status": "결제완료",
+      "ordered_at": "2026-10-29",
+      "items": [{"sku": "CT-05", "name": "겨울 코트", "qty": 1, "price": 89000}],
+      "total": 89000,
+      "shipping_fee": 0,
+      "region": "부산",
+      "tracking_no": null,
+      "is_bundle": false
+    }
+  }
+}

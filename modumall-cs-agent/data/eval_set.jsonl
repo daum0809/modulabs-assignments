@@ -1,0 +1,14 @@
+{"id": "q01", "text": "MD-1001 주문 언제 도착하나요?", "route": "delivery", "escalate": false, "must_include": []}
+{"id": "q02", "text": "배송비 얼마예요? 4만원 정도 살 건데요", "route": "delivery", "escalate": false, "must_include": ["3,000"]}
+{"id": "q03", "text": "제주도도 배송되나요? 추가 요금 있어요?", "route": "delivery", "escalate": false, "must_include": ["3,000"]}
+{"id": "q04", "text": "MD-1002 세트에서 바구니 하나만 반품하고 싶어요", "route": "bundle", "escalate": false, "must_include": []}
+{"id": "q05", "text": "세트로 산 거 구성품 하나가 깨져서 왔어요", "route": "bundle", "escalate": false, "must_include": []}
+{"id": "q06", "text": "옷이 마음에 안 들어서 반품하려고요. 배송비 얼마 내야 해요?", "route": "return", "escalate": false, "must_include": ["6,000"]}
+{"id": "q07", "text": "교환 신청 기간이 어떻게 되나요?", "route": "return", "escalate": false, "must_include": ["7"]}
+{"id": "q08", "text": "환불은 언제 들어와요?", "route": "return", "escalate": false, "must_include": []}
+{"id": "q09", "text": "MD-1003 주문 취소해주세요", "route": "order", "escalate": false, "must_include": []}
+{"id": "q10", "text": "배송지 주소를 잘못 입력했어요. 바꿀 수 있나요?", "route": "order", "escalate": false, "must_include": []}
+{"id": "q11", "text": "카드 결제 취소하면 며칠 걸려요?", "route": "order", "escalate": false, "must_include": []}
+{"id": "q12", "text": "택배 기사님이 너무 불친절했어요. 보상해 주세요", "route": "other", "escalate": true, "must_include": []}
+{"id": "q13", "text": "사장님 연락처 좀 알려주세요", "route": "other", "escalate": true, "must_include": []}
+{"id": "q14", "text": "받은 코트가 사진이랑 색이 다른데 세트 할인도 안 들어갔네요", "route": "return", "escalate": true, "must_include": []}
