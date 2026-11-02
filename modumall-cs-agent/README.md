@@ -48,6 +48,15 @@ python set_key.py                                          # API 키를 화면�
 python -m eval.score_router --router llm --set test
 python -m eval.score_pipeline --router llm --set test      # 답변 전문은 eval/results/test.jsonl
 python graph.py "MD-1001 언제 와요?"
+streamlit run streamlit_app.py                             # 웹 화면 http://localhost:8501
 ```
+
+## 웹 화면
+
+| 화면 | 내용 |
+|---|---|
+| 고객 상담 | 대화창. 답변마다 '판단 근거'(분류 → 넣은 근거 문서 → 조회 결과 → 숫자 검사)를 펼쳐 볼 수 있음 |
+| 평가 대시보드 | `eval/results/`의 채점 결과: 전체 통과, 정확도, Macro F1, 이관 판정, 기준별 통과율, 카테고리별 성능, 혼동 행렬, 실패 문항과 답변 전문 |
+| 상담원 확인함 | 상담원에게 넘어온 문의, 넘긴 이유, 에이전트 초안 (서버 메모리에만 보관) |
 
 데이터(매뉴얼, 주문 3건, 평가셋)는 모두 연습용 가상 데이터입니다. 구조와 강의별 대응은 [CLAUDE.md](CLAUDE.md)에 있습니다.
