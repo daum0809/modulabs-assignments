@@ -1,0 +1,12 @@
+{"id": "t01", "text": "MD-1002 지금 어디쯤 오고 있나요?", "route": "delivery", "escalate": false, "must_include": [], "must_not_include": []}
+{"id": "t02", "text": "6만원어치 사면 배송비 안 내도 되죠?", "route": "delivery", "escalate": false, "must_include": ["50,000"], "must_not_include": ["6,000"]}
+{"id": "t03", "text": "결제하면 보통 며칠 만에 출고돼요?", "route": "delivery", "escalate": false, "must_include": ["1", "2"], "must_not_include": []}
+{"id": "t04", "text": "불량품이 왔는데 반품 배송비 제가 내야 하나요?", "route": "return", "escalate": false, "must_include": [], "must_not_include": ["50,000"]}
+{"id": "t05", "text": "받은 지 열흘 됐는데 아직 반품 되나요?", "route": "return", "escalate": false, "must_include": ["7"], "must_not_include": []}
+{"id": "t06", "text": "세트 할인은 하나만 사도 적용되나요?", "route": "bundle", "escalate": false, "must_include": [], "must_not_include": []}
+{"id": "t07", "text": "MD-1002 세트 중에 바구니 소 사이즈만 교환할 수 있어요?", "route": "bundle", "escalate": false, "must_include": [], "must_not_include": []}
+{"id": "t08", "text": "아직 출고 전인데 주문 취소하면 바로 되나요?", "route": "order", "escalate": false, "must_include": [], "must_not_include": []}
+{"id": "t09", "text": "MD-1003 받는 주소를 부산에서 대구로 바꾸고 싶어요", "route": "order", "escalate": false, "must_include": [], "must_not_include": []}
+{"id": "t10", "text": "포장이 너무 과해서 쓰레기가 많이 나와요", "route": "other", "escalate": true, "must_include": [], "must_not_include": []}
+{"id": "t11", "text": "회원 탈퇴는 어떻게 하나요?", "route": "other", "escalate": true, "must_include": [], "must_not_include": []}
+{"id": "t12", "text": "MD-1001 티셔츠 반품하면서 다른 색으로 교환도 하고 쿠폰도 다시 쓰고 싶어요", "route": "return", "escalate": true, "must_include": [], "must_not_include": []}

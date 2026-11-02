@@ -1,12 +1,19 @@
-"""3강: Macro F1과 혼동 행렬 (외부 라이브러리 없이)."""
+"""3강: 정확도, Macro F1, 혼동 행렬 (외부 라이브러리 없이)."""
 import json
 
 import config
 
+SETS = {"dev": config.EVAL_SET_PATH, "test": config.TEST_SET_PATH}
 
-def load_eval_set() -> list[dict]:
-    with open(config.EVAL_SET_PATH, encoding="utf-8") as f:
+
+def load_eval_set(name: str = "dev") -> list[dict]:
+    """dev = 개발셋(튜닝하며 본 문항), test = 테스트셋(튜닝에 쓰지 않은 문항)."""
+    with open(SETS[name], encoding="utf-8") as f:
         return [json.loads(line) for line in f if line.strip()]
+
+
+def accuracy(y_true: list[str], y_pred: list[str]) -> float:
+    return sum(t == p for t, p in zip(y_true, y_pred)) / len(y_true)
 
 
 def macro_f1(y_true: list[str], y_pred: list[str], labels=config.ROUTES) -> tuple[float, dict]:

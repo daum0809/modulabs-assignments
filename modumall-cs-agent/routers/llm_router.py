@@ -28,7 +28,8 @@ SYSTEM_PROMPT = """너는 쇼핑몰 '모두몰'의 고객 문의 분류기다.
 
 def llm_route(question: str) -> tuple[str, float, str]:
     route_list = "\n".join(f"- {k}: {v}" for k, v in config.ROUTE_LABELS.items())
-    router = get_llm().with_structured_output(RouteDecision)
+    # 최신 Claude 모델은 강제 도구 호출 방식의 구조화 출력을 지원하지 않아 json_schema를 쓴다
+    router = get_llm().with_structured_output(RouteDecision, method="json_schema")
     decision: RouteDecision = router.invoke([
         ("system", SYSTEM_PROMPT.format(route_list=route_list)),
         ("human", question),

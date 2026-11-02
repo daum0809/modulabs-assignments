@@ -3,5 +3,8 @@ import config
 
 
 def load_manual(route: str) -> str:
-    path = config.MANUAL_DIR / f"{route}.md"
-    return path.read_text(encoding="utf-8") if path.exists() else ""
+    """config.ROUTE_MANUALS에 매핑된 근거 문서 하나만 돌려준다. 매핑이 없으면 빈 문자열."""
+    name = config.ROUTE_MANUALS.get(route)
+    if not name:
+        return ""
+    return (config.MANUAL_DIR / name).read_text(encoding="utf-8")
